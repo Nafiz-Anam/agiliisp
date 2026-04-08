@@ -88,7 +88,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               className={`h-9 px-4 text-[13px] font-semibold ${
                 isDanger
                   ? "bg-red-500 hover:bg-red-600 text-white"
-                  : "bg-orange-500 hover:bg-orange-600 text-white"
+                  : "bg-blue-500 hover:bg-blue-600 text-white"
               }`}
               onClick={handleConfirm}
             >
@@ -145,7 +145,7 @@ export function ConfirmDialog({
             Cancel
           </Button>
           <Button
-            className={`h-9 px-4 text-[13px] font-semibold ${isDanger ? "bg-red-500 hover:bg-red-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"}`}
+            className={`h-9 px-4 text-[13px] font-semibold ${isDanger ? "bg-red-500 hover:bg-red-600 text-white" : "bg-blue-500 hover:bg-blue-600 text-white"}`}
             onClick={() => { onConfirm(); onOpenChange(false); }}
           >
             {confirmLabel}

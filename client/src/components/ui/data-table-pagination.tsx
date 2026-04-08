@@ -104,7 +104,7 @@ export function DataTablePagination({
                 size="icon"
                 className={`h-8 w-8 text-[13px] ${
                   p === page
-                    ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+                    ? "bg-blue-500 hover:bg-blue-600 text-white border-blue-500"
                     : "border-slate-200"
                 }`}
                 onClick={() => onPageChange(p)}

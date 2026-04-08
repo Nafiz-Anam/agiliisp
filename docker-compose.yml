@@ -2,12 +2,12 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: inventrk-postgres
+    container_name: agiloisp-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
-      POSTGRES_DB: inventrackdb
+      POSTGRES_DB: agiloisp
     ports:
       - "5432:5432"
     volumes:
@@ -23,7 +23,7 @@ services:
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: inventrk-redis
+    container_name: agiloisp-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -39,7 +39,7 @@ services:
 
   # Backend API Server
   server:
-    container_name: inventrk-server
+    container_name: agiloisp-server
     build:
       context: ./server
       dockerfile: Dockerfile.dev
@@ -49,8 +49,8 @@ services:
     environment:
       NODE_ENV: development
       PORT: 8000
-      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/inventrackdb?schema=public
-      JWT_SECRET: super-secret-jwt-key-for-inventracker-2024
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/agiloisp?schema=public
+      JWT_SECRET: super-secret-jwt-key-for-agiloisp-2026
       JWT_ACCESS_EXPIRATION_MINUTES: 30
       JWT_REFRESH_EXPIRATION_DAYS: 30
       JWT_RESET_PASSWORD_EXPIRATION_MINUTES: 10
@@ -62,7 +62,7 @@ services:
       SMTP_PORT: 587
       SMTP_USERNAME: noreply@example.com
       SMTP_PASSWORD: placeholder-password
-      EMAIL_FROM: noreply@inventracker.com
+      EMAIL_FROM: noreply@agiloisp.com
       CLIENT_URL: http://localhost:3000
     volumes:
       - ./server/src:/usr/src/app/src
@@ -79,7 +79,7 @@ services:
 
   # Frontend Next.js App
   client:
-    container_name: inventrk-client
+    container_name: agiloisp-client
     build:
       context: ./client
       dockerfile: Dockerfile.dev

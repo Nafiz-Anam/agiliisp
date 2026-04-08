@@ -1,16 +1,15 @@
-# InvenTrack - Full stack (PostgreSQL + Redis + API + Client)
+# AgiliOSP - Full stack (PostgreSQL + Redis + API + Client)
 # Production: pulled from Docker Hub, deployed via CI/CD
-# App: https://inventrack.agiloit.store | API: https://api.inventrack.agiloit.store
 
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: inventrk-postgres
+    container_name: agiloisp-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
-      POSTGRES_DB: inventrackdb
+      POSTGRES_DB: agiloisp
     ports:
       - "5434:5432"
     volumes:
@@ -23,7 +22,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: inventrk-redis
+    container_name: agiloisp-redis
     restart: unless-stopped
     ports:
       - "6381:6379"
@@ -36,8 +35,8 @@ services:
       retries: 5
 
   server:
-    image: ${DOCKERHUB_USERNAME}/inventrack-server:latest
-    container_name: inventrk-server
+    image: ${DOCKERHUB_USERNAME}/agiloisp-server:latest
+    container_name: agiloisp-server
     restart: unless-stopped
     ports:
       - "127.0.0.1:8001:8000"
@@ -51,8 +50,8 @@ services:
     command: sh -c "node node_modules/prisma/build/index.js db push && node build/prisma/seed.js; node build/src/index.js"
 
   client:
-    image: ${DOCKERHUB_USERNAME}/inventrack-client:latest
-    container_name: inventrk-client
+    image: ${DOCKERHUB_USERNAME}/agiloisp-client:latest
+    container_name: agiloisp-client
     restart: unless-stopped
     ports:
       - "127.0.0.1:3001:3000"

@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import config from '../config/config';
 import prisma from '../client';
 import { Role } from '@prisma/client';
+import cacheService from '../services/cache.service';
 
 // Extend Express Request to include user
 declare global {
@@ -16,6 +17,44 @@ declare global {
       user?: User;
     }
   }
+}
+
+const PERMISSION_CACHE_TTL = 60; // 60 seconds
+
+/**
+ * Get user permissions from DB with Redis cache.
+ * Falls back to hardcoded roleRights if DB has no permissions seeded.
+ */
+async function getUserPermissions(userId: string, userRole: string): Promise<string[]> {
+  const cacheKey = `rbac:permissions:${userId}`;
+
+  // Try cache first
+  const cached = await cacheService.get<string[]>(cacheKey);
+  if (cached) return cached;
+
+  // Query DB: get permissions via user's enum role mapped to RoleModel
+  try {
+    const roleModel = await prisma.roleModel.findUnique({
+      where: { name: userRole },
+      include: {
+        permissions: {
+          include: { permission: true },
+        },
+      },
+    });
+
+    if (roleModel && roleModel.permissions.length > 0) {
+      const permissions = roleModel.permissions.map((rp: any) => rp.permission.name);
+      await cacheService.set(cacheKey, permissions, { ttl: PERMISSION_CACHE_TTL });
+      return permissions;
+    }
+  } catch {
+    // DB query failed, fall through to hardcoded
+  }
+
+  // Fallback to hardcoded config if DB has no data
+  const hardcoded = roleRights.get(userRole) ?? [];
+  return hardcoded as string[];
 }
 
 const verifyCallback =
@@ -32,7 +71,7 @@ const verifyCallback =
     req.user = user;
 
     if (requiredRights.length) {
-      const userRights = roleRights.get(user.role) ?? [];
+      const userRights = await getUserPermissions(user.id, user.role);
       const hasRequiredRights = requiredRights.every(requiredRight =>
         userRights.includes(requiredRight)
       );

@@ -200,7 +200,7 @@ export default function CustomersPage() {
           <h1 className="text-2xl font-bold text-slate-800">Customers</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage ISP customers</p>
         </div>
-        <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 text-sm">
+        <Button onClick={openCreate} className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5 text-sm">
           <Plus className="h-4 w-4" /> New Customer
         </Button>
       </div>
@@ -219,7 +219,7 @@ export default function CustomersPage() {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">All Statuses</option>
           <option value="ACTIVE">Active</option>
@@ -371,7 +371,7 @@ export default function CustomersPage() {
                 <select
                   value={form.connectionType}
                   onChange={(e) => setForm((f) => ({ ...f, connectionType: e.target.value }))}
-                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                   required
                 >
                   <option value="PPPOE">PPPoE</option>
@@ -385,7 +385,7 @@ export default function CustomersPage() {
                 <select
                   value={form.routerId}
                   onChange={(e) => handleRouterChange(e.target.value)}
-                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                   required
                 >
                   <option value="">Select router...</option>
@@ -397,7 +397,7 @@ export default function CustomersPage() {
                 <select
                   value={form.packageId}
                   onChange={(e) => setForm((f) => ({ ...f, packageId: e.target.value }))}
-                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                   required
                   disabled={!form.routerId}
                 >
@@ -410,7 +410,7 @@ export default function CustomersPage() {
                 <select
                   value={form.resellerId}
                   onChange={(e) => setForm((f) => ({ ...f, resellerId: e.target.value }))}
-                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                 >
                   <option value="">Direct (no reseller)</option>
                   {resellers.map((r) => <option key={r.id} value={r.id}>{r.businessName}</option>)}
@@ -421,7 +421,7 @@ export default function CustomersPage() {
                 <select
                   value={form.status}
                   onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                   required
                 >
                   <option value="PENDING_ACTIVATION">Pending Activation</option>
@@ -449,7 +449,7 @@ export default function CustomersPage() {
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-              <Button type="submit" disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Button type="submit" disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {saving ? "Saving..." : editCustomer ? "Update Customer" : "Create Customer"}
               </Button>
             </div>

@@ -179,7 +179,7 @@ export default function ResellersPage() {
           <h1 className="text-2xl font-bold text-slate-800">Resellers</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage reseller partners</p>
         </div>
-        <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 text-sm">
+        <Button onClick={openCreate} className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5 text-sm">
           <Plus className="h-4 w-4" /> New Reseller
         </Button>
       </div>
@@ -192,7 +192,7 @@ export default function ResellersPage() {
         <select
           value={activeFilter}
           onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">All</option>
           <option value="true">Active</option>
@@ -359,17 +359,17 @@ export default function ResellersPage() {
                 <Input id="supEmail" type="email" value={form.supportEmail} onChange={(e) => setForm((f) => ({ ...f, supportEmail: e.target.value }))} />
               </div>
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="canCust" checked={form.canCreateCustomers} onChange={(e) => setForm((f) => ({ ...f, canCreateCustomers: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 accent-orange-500" />
+                <input type="checkbox" id="canCust" checked={form.canCreateCustomers} onChange={(e) => setForm((f) => ({ ...f, canCreateCustomers: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 accent-blue-500" />
                 <Label htmlFor="canCust" className="cursor-pointer">Can Create Customers</Label>
               </div>
               <div className="flex items-center gap-2">
-                <input type="checkbox" id="canPkg" checked={form.canCreatePackages} onChange={(e) => setForm((f) => ({ ...f, canCreatePackages: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 accent-orange-500" />
+                <input type="checkbox" id="canPkg" checked={form.canCreatePackages} onChange={(e) => setForm((f) => ({ ...f, canCreatePackages: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 accent-blue-500" />
                 <Label htmlFor="canPkg" className="cursor-pointer">Can Create Packages</Label>
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-              <Button type="submit" disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Button type="submit" disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {saving ? "Saving..." : editReseller ? "Update" : "Create Reseller"}
               </Button>
             </div>

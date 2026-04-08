@@ -8,7 +8,7 @@ echo "Generating Prisma client..."
 npx prisma generate
 
 echo "Pushing database schema..."
-npx prisma db push
+npx prisma db push --accept-data-loss
 
 echo "Seeding database..."
 npx ts-node prisma/seed.ts || echo "Seed may have already been applied, continuing..."

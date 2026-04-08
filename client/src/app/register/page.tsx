@@ -52,7 +52,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-[440px]">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-lg bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-lg bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
               <Wifi className="h-6 w-6 text-white" />
             </div>
           </div>
@@ -83,7 +83,7 @@ export default function RegisterPage() {
               {errors.confirmPassword && <p className="text-[13px] text-red-500">{errors.confirmPassword.message}</p>}
             </div>
             <Button type="submit"
-              className="w-full h-11 bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-[14px] font-semibold mt-2 rounded-lg"
+              className="w-full h-11 bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-[14px] font-semibold mt-2 rounded-lg"
               disabled={loading}>
               {loading ? (
                 <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-lg animate-spin" />
@@ -96,7 +96,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-[14px] text-slate-500 mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-orange-600 hover:text-orange-700 font-semibold">Sign In</Link>
+          <Link href="/login" className="text-blue-600 hover:text-blue-700 font-semibold">Sign In</Link>
         </p>
       </div>
     </div>

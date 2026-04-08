@@ -13,20 +13,16 @@ import roleRoute from './role.route';
 import passwordPolicyRoute from './passwordPolicy.route';
 import auditLogRoute from './auditLog.route';
 import sessionManagementRoute from './sessionManagement.route';
-import categoryRoute from './category.route';
-import productRoute from './product.route';
-import orderRoute from './order.route';
-import restockRoute from './restock.route';
-import dashboardRoute from './dashboard.route';
-import inventoryActivityRoute from './inventoryActivity.route';
 import ispDashboardRoute from './isp/dashboard.route';
 import ispCustomerRoute from './isp/customer.route';
+import ispOltRoute from './isp/olt.route';
 import ispRouterRoute from './isp/router.route';
 import ispPackageRoute from './isp/package.route';
 import ispResellerRoute from './isp/reseller.route';
 import ispInvoiceRoute from './isp/invoice.route';
 import ispTicketRoute from './isp/ticket.route';
 import ispRouterLogRoute from './isp/routerLog.route';
+import ispInventoryRoute from './isp/inventory.route';
 import config from '../../config/config';
 
 const router = express.Router();
@@ -85,36 +81,16 @@ const defaultRoutes = [
     route: sessionManagementRoute,
   },
   {
-    path: '/categories',
-    route: categoryRoute,
-  },
-  {
-    path: '/products',
-    route: productRoute,
-  },
-  {
-    path: '/orders',
-    route: orderRoute,
-  },
-  {
-    path: '/restock-queue',
-    route: restockRoute,
-  },
-  {
-    path: '/dashboard',
-    route: dashboardRoute,
-  },
-  {
-    path: '/activity-log',
-    route: inventoryActivityRoute,
-  },
-  {
     path: '/isp/dashboard',
     route: ispDashboardRoute,
   },
   {
     path: '/isp/customers',
     route: ispCustomerRoute,
+  },
+  {
+    path: '/isp/olts',
+    route: ispOltRoute,
   },
   {
     path: '/isp/routers',
@@ -140,8 +116,11 @@ const defaultRoutes = [
     path: '/isp/router-logs',
     route: ispRouterLogRoute,
   },
+  {
+    path: '/isp/inventory',
+    route: ispInventoryRoute,
+  },
 ];
-
 
 // Debug log to check route registration
 defaultRoutes.forEach(route => {

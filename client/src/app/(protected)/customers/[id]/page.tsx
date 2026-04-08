@@ -258,7 +258,7 @@ export default function CustomerDetailPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="h-8 w-8 border-2 border-orange-200 border-t-orange-600 rounded-lg animate-spin" />
+      <div className="h-8 w-8 border-2 border-blue-200 border-t-blue-600 rounded-lg animate-spin" />
     </div>
   );
 
@@ -348,7 +348,7 @@ export default function CustomerDetailPage() {
           <MiniStat label="Total Invoices" value={stats.invoices.total} sub={`$${stats.invoices.totalAmount?.toFixed(2) ?? "0.00"} total`} color="blue" />
           <MiniStat label="Outstanding" value={`$${stats.invoices.unpaidAmount?.toFixed(2) ?? "0.00"}`} sub={`${stats.invoices.overdue} overdue`} color={stats.invoices.overdue > 0 ? "red" : "slate"} />
           <MiniStat label="Data Used" value={formatBytes(customer.dataUsed)} sub={customer.dataLimit ? `of ${formatBytes(customer.dataLimit)}` : "Unlimited"} color="purple" />
-          <MiniStat label="Tickets" value={stats.ticketCount} sub="support requests" color="orange" />
+          <MiniStat label="Tickets" value={stats.ticketCount} sub="support requests" color="blue" />
         </div>
       )}
 
@@ -367,7 +367,7 @@ export default function CustomerDetailPage() {
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
                 tab === key
-                  ? "border-orange-500 text-orange-600"
+                  ? "border-blue-500 text-blue-600"
                   : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
               )}
             >
@@ -410,7 +410,7 @@ export default function CustomerDetailPage() {
           <Card className="border-slate-200/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <Wifi className="h-4 w-4 text-orange-500" />
+                <Wifi className="h-4 w-4 text-blue-500" />
                 Live Connection
               </CardTitle>
             </CardHeader>
@@ -461,7 +461,7 @@ export default function CustomerDetailPage() {
                 });
                 setShowInvoiceForm(true);
               }}
-              className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 text-sm h-9"
+              className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5 text-sm h-9"
             >
               <Plus className="h-4 w-4" /> New Invoice
             </Button>
@@ -485,7 +485,7 @@ export default function CustomerDetailPage() {
                     <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">No invoices yet</td></tr>
                   ) : invoices.map((inv) => (
                     <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60">
-                      <td className="px-5 py-3.5 font-mono text-orange-600 font-medium text-[13px]">{inv.invoiceNumber}</td>
+                      <td className="px-5 py-3.5 font-mono text-blue-600 font-medium text-[13px]">{inv.invoiceNumber}</td>
                       <td className="px-4 py-3.5 font-semibold text-slate-800">${Number(inv.totalAmount).toFixed(2)}</td>
                       <td className="px-4 py-3.5">
                         <span className={`font-semibold text-[13px] ${Number(inv.balanceDue) > 0 ? "text-red-600" : "text-emerald-600"}`}>
@@ -542,7 +542,7 @@ export default function CustomerDetailPage() {
                   <tr><td colSpan={6} className="px-5 py-10 text-center text-slate-400 text-sm">No support tickets</td></tr>
                 ) : tickets.map((t) => (
                   <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/60">
-                    <td className="px-5 py-3.5 font-mono text-orange-600 font-medium text-[13px]">{t.ticketNumber}</td>
+                    <td className="px-5 py-3.5 font-mono text-blue-600 font-medium text-[13px]">{t.ticketNumber}</td>
                     <td className="px-4 py-3.5 text-slate-700 text-[13px] max-w-[200px] truncate">{t.subject}</td>
                     <td className="px-4 py-3.5">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES.priority[t.priority]}`}>{t.priority}</span>
@@ -590,7 +590,7 @@ export default function CustomerDetailPage() {
                     <YAxis tickFormatter={(v) => formatBytes(String(v), true)} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                     <Tooltip
                       contentStyle={{ borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12 }}
-                      formatter={(v: number, name: string) => [formatBytes(String(v)), name === "bytesIn" ? "Download" : "Upload"]}
+                      formatter={(v, name) => [formatBytes(String(v)), name === "bytesIn" ? "Download" : "Upload"]}
                     />
                     <Area type="monotone" dataKey="bytesIn" stroke="#10b981" strokeWidth={2} fill="url(#dlGrad)" name="Download" />
                     <Area type="monotone" dataKey="bytesOut" stroke="#3b82f6" strokeWidth={2} fill="url(#ulGrad)" name="Upload" />
@@ -704,7 +704,7 @@ export default function CustomerDetailPage() {
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <Button type="button" variant="outline" onClick={() => setShowInvoiceForm(false)}>Cancel</Button>
-              <Button type="submit" disabled={savingInvoice} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Button type="submit" disabled={savingInvoice} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {savingInvoice ? "Creating..." : "Create Invoice"}
               </Button>
             </div>
@@ -725,7 +725,7 @@ export default function CustomerDetailPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Payment Method *</Label>
-                <select value={paymentForm.method} onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))} className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-300">
+                <select value={paymentForm.method} onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))} className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
                   <option value="CASH">Cash</option>
                   <option value="BANK_TRANSFER">Bank Transfer</option>
                   <option value="MOBILE_MONEY">Mobile Money</option>
@@ -757,7 +757,7 @@ function MiniStat({ label, value, sub, color }: { label: string; value: string |
     blue: "bg-blue-50 border-blue-100",
     red: "bg-red-50 border-red-100",
     purple: "bg-purple-50 border-purple-100",
-    orange: "bg-orange-50 border-orange-100",
+    blue: "bg-blue-50 border-blue-100",
     slate: "bg-slate-50 border-slate-100",
   };
   return (

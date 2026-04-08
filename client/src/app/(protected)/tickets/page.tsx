@@ -156,7 +156,7 @@ export default function TicketsPage() {
               <span className="text-sm font-medium text-blue-700">{openTickets} Open</span>
             </div>
           )}
-          <Button size="sm" onClick={() => setShowCreateForm(true)} className="h-9 gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-sm">
+          <Button size="sm" onClick={() => setShowCreateForm(true)} className="h-9 gap-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm">
             <Plus className="h-4 w-4" /> New Ticket
           </Button>
         </div>
@@ -170,7 +170,7 @@ export default function TicketsPage() {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">All Statuses</option>
           <option value="OPEN">Open</option>
@@ -182,7 +182,7 @@ export default function TicketsPage() {
         <select
           value={priorityFilter}
           onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">All Priorities</option>
           <option value="CRITICAL">Critical</option>
@@ -222,7 +222,7 @@ export default function TicketsPage() {
                   <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">No tickets found</td></tr>
                 ) : tickets.map((t) => (
                   <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                    <td className="px-5 py-3.5 font-mono text-orange-600 font-medium text-[13px]">
+                    <td className="px-5 py-3.5 font-mono text-blue-600 font-medium text-[13px]">
                       {t.ticketNumber}
                     </td>
                     <td className="px-4 py-3.5 max-w-[200px]">
@@ -324,7 +324,7 @@ export default function TicketsPage() {
               <select
                 value={createForm.customerId}
                 onChange={(e) => setCreateForm((f) => ({ ...f, customerId: e.target.value }))}
-                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
               >
                 <option value="">Select customer...</option>
                 {customers.map((c) => (
@@ -348,7 +348,7 @@ export default function TicketsPage() {
                 onChange={(e) => setCreateForm((f) => ({ ...f, description: e.target.value }))}
                 placeholder="Detailed description..."
                 rows={4}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none"
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -357,7 +357,7 @@ export default function TicketsPage() {
                 <select
                   value={createForm.category}
                   onChange={(e) => setCreateForm((f) => ({ ...f, category: e.target.value }))}
-                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 >
                   <option value="Technical">Technical</option>
                   <option value="Billing">Billing</option>
@@ -370,7 +370,7 @@ export default function TicketsPage() {
                 <select
                   value={createForm.priority}
                   onChange={(e) => setCreateForm((f) => ({ ...f, priority: e.target.value }))}
-                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 >
                   <option value="LOW">Low</option>
                   <option value="MEDIUM">Medium</option>
@@ -381,7 +381,7 @@ export default function TicketsPage() {
             </div>
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
-              <Button onClick={handleCreateTicket} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Button onClick={handleCreateTicket} disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {saving ? "Creating..." : "Create Ticket"}
               </Button>
             </div>
@@ -403,7 +403,7 @@ export default function TicketsPage() {
               </p>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setUpdateStatus(null)}>Cancel</Button>
-                <Button onClick={handleStatusUpdate} className="bg-orange-500 hover:bg-orange-600 text-white">Confirm</Button>
+                <Button onClick={handleStatusUpdate} className="bg-blue-500 hover:bg-blue-600 text-white">Confirm</Button>
               </div>
             </div>
           </DialogContent>

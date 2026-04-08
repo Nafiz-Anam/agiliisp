@@ -15,6 +15,7 @@ import {
   getUserRoles,
   getUserPermissions,
   checkUserPermission,
+  getAllPermissions,
 } from '../../controllers/role.controller';
 
 const router = express.Router();
@@ -35,6 +36,13 @@ router.post('/', validate({ body: rbacValidation.createRole }), createRole);
  * @access Private (Admin only)
  */
 router.get('/', getRoles);
+
+/**
+ * @route GET /v1/roles/permissions/all
+ * @desc Get all available permissions
+ * @access Private (Admin only)
+ */
+router.get('/permissions/all', getAllPermissions);
 
 /**
  * @route GET /v1/roles/:roleId

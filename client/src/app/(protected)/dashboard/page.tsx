@@ -47,7 +47,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 border-orange-200 border-t-orange-600 rounded-lg animate-spin" />
+        <div className="h-8 w-8 border-2 border-blue-200 border-t-blue-600 rounded-lg animate-spin" />
       </div>
     );
   }
@@ -116,8 +116,8 @@ export default function DashboardPage() {
           label="Routers Online"
           value={s?.routers.online ?? 0}
           icon={Router}
-          iconColor="text-orange-500"
-          iconBg="bg-orange-50"
+          iconColor="text-blue-500"
+          iconBg="bg-blue-50"
           sub={`${s?.routers.total ?? 0} total`}
         />
         <StatCard
@@ -152,7 +152,7 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2 border-slate-200/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-orange-500" />
+              <TrendingUp className="h-4 w-4 text-blue-500" />
               Revenue & Customer Growth (6 months)
             </CardTitle>
           </CardHeader>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
         <Card className="border-slate-200/80">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <RefreshCw className="h-4 w-4 text-orange-500" />
+              <RefreshCw className="h-4 w-4 text-blue-500" />
               Recent Router Syncs
             </CardTitle>
           </CardHeader>

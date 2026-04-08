@@ -20,6 +20,8 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>;
 
+const isDev = process.env.NODE_ENV === "development";
+
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
@@ -66,7 +68,7 @@ export default function LoginPage() {
             <div className="h-12 w-12 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
               <Wifi className="h-6 w-6" />
             </div>
-            <span className="text-2xl font-bold tracking-tight">Agiloisp</span>
+            <span className="text-2xl font-bold tracking-tight">AgiliOSP</span>
           </div>
           <h1 className="text-4xl font-bold leading-tight mb-4">
             Complete ISP<br />Management Platform
@@ -82,7 +84,7 @@ export default function LoginPage() {
               { label: "Monitoring", value: "Live" },
             ].map((stat) => (
               <div key={stat.label} className="bg-white/5 border border-white/10 rounded-lg p-4">
-                <p className="text-2xl font-bold text-orange-400">{stat.value}</p>
+                <p className="text-2xl font-bold text-blue-400">{stat.value}</p>
                 <p className="text-sm text-slate-500">{stat.label}</p>
               </div>
             ))}
@@ -94,10 +96,10 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center px-6 bg-white">
         <div className="w-full max-w-[400px]">
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="h-10 w-10 rounded-lg bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-lg bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
               <Wifi className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-xl text-slate-800">Agiloisp</span>
+            <span className="font-bold text-xl text-slate-800">AgiliOSP</span>
           </div>
 
           <h2 className="text-2xl font-bold text-slate-800 mb-1">Welcome back</h2>
@@ -119,7 +121,7 @@ export default function LoginPage() {
               {errors.password && <p className="text-[13px] text-red-500">{errors.password.message}</p>}
             </div>
             <Button type="submit"
-              className="w-full h-11 bg-linear-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-[14px] font-semibold rounded-lg"
+              className="w-full h-11 bg-linear-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-[14px] font-semibold rounded-lg"
               disabled={loading}>
               {loading ? (
                 <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-lg animate-spin" />
@@ -129,37 +131,41 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200" /></div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-white px-3 text-slate-400 font-medium">or try it out</span>
-            </div>
-          </div>
+          {isDev && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200" /></div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-3 text-slate-400 font-medium">or try it out</span>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <Button variant="outline"
-              className="border-dashed border-slate-300 hover:border-amber-300 hover:bg-amber-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
-              onClick={() => handleDemoLogin("admin")} disabled={loading}>
-              <Shield className="h-4 w-4 text-amber-500" />
-              <span>Admin</span>
-            </Button>
-            <Button variant="outline"
-              className="border-dashed border-slate-300 hover:border-blue-300 hover:bg-blue-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
-              onClick={() => handleDemoLogin("reseller")} disabled={loading}>
-              <Building2 className="h-4 w-4 text-blue-500" />
-              <span>Reseller</span>
-            </Button>
-            <Button variant="outline"
-              className="border-dashed border-slate-300 hover:border-green-300 hover:bg-green-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
-              onClick={() => handleDemoLogin("customer")} disabled={loading}>
-              <User className="h-4 w-4 text-green-500" />
-              <span>Customer</span>
-            </Button>
-          </div>
+              <div className="grid grid-cols-3 gap-2">
+                <Button variant="outline"
+                  className="border-dashed border-slate-300 hover:border-amber-300 hover:bg-amber-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
+                  onClick={() => handleDemoLogin("admin")} disabled={loading}>
+                  <Shield className="h-4 w-4 text-amber-500" />
+                  <span>Admin</span>
+                </Button>
+                <Button variant="outline"
+                  className="border-dashed border-slate-300 hover:border-blue-300 hover:bg-blue-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
+                  onClick={() => handleDemoLogin("reseller")} disabled={loading}>
+                  <Building2 className="h-4 w-4 text-blue-500" />
+                  <span>Reseller</span>
+                </Button>
+                <Button variant="outline"
+                  className="border-dashed border-slate-300 hover:border-green-300 hover:bg-green-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
+                  onClick={() => handleDemoLogin("customer")} disabled={loading}>
+                  <User className="h-4 w-4 text-green-500" />
+                  <span>Customer</span>
+                </Button>
+              </div>
+            </>
+          )}
 
           <p className="text-center text-[14px] text-slate-500 mt-8">
             Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-orange-600 hover:text-orange-700 font-semibold">Create one</Link>
+            <Link href="/register" className="text-blue-600 hover:text-blue-700 font-semibold">Create one</Link>
           </p>
         </div>
       </div>

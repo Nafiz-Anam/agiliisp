@@ -6,15 +6,18 @@ import ispInvoiceController from '../../../controllers/ispInvoice.controller';
 
 const router = express.Router();
 
+// Static routes before /:invoiceId
+router.get('/dashboard', auth('manageInvoices'), ispInvoiceController.getBillingDashboard);
+router.get('/payments', auth('manageInvoices'), ispInvoiceController.getPayments);
+router.post('/auto-generate', auth('manageInvoices'), validate(ispInvoiceValidation.autoGenerate), ispInvoiceController.autoGenerateInvoices);
+
 router
   .route('/')
   .get(auth('manageInvoices'), validate(ispInvoiceValidation.getInvoices), ispInvoiceController.getInvoices)
   .post(auth('manageInvoices'), validate(ispInvoiceValidation.createInvoice), ispInvoiceController.createInvoice);
 
-// IMPORTANT: /auto-generate must come before /:invoiceId to prevent Express matching it as an ID
-router.post('/auto-generate', auth('manageInvoices'), validate(ispInvoiceValidation.autoGenerate), ispInvoiceController.autoGenerateInvoices);
-
 router.get('/:invoiceId', auth('manageInvoices'), validate(ispInvoiceValidation.invoiceId), ispInvoiceController.getInvoiceById);
 router.post('/:invoiceId/payments', auth('manageInvoices'), validate(ispInvoiceValidation.addPayment), ispInvoiceController.addPayment);
+router.post('/:invoiceId/send', auth('manageInvoices'), ispInvoiceController.markInvoiceSent);
 
 export default router;

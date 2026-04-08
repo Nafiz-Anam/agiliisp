@@ -27,3 +27,7 @@ export { default as resellerService } from './reseller.service';
 export { default as ispDashboardService } from './ispDashboard.service';
 export { default as routerLogService } from './routerLog.service';
 export { default as appSystemLogService } from './appSystemLog.service';
+export { default as invoiceService } from './invoice.service';
+export { default as ticketService } from './ticket.service';
+export { default as oltService } from './olt.service';
+export { default as inventoryService } from './inventory.service';

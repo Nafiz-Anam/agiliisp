@@ -21,11 +21,13 @@ import { useAuthStore } from "@/store/auth-store";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { format } from "date-fns";
 
+const STAFF_ROLES = ["USER", "ADMIN", "MODERATOR", "SUPER_ADMIN", "MANAGER", "SUPPORT", "FIELD_TECHNICIAN", "ENGINEER"];
+
 interface UserItem {
   id: string;
   email: string;
   name: string | null;
-  role: "USER" | "ADMIN" | "MODERATOR";
+  role: "USER" | "ADMIN" | "MODERATOR" | "SUPER_ADMIN" | "MANAGER" | "SUPPORT" | "FIELD_TECHNICIAN" | "ENGINEER";
   isActive: boolean;
   isLocked: boolean;
   isEmailVerified: boolean;
@@ -60,7 +62,8 @@ export default function UsersPage() {
       if (search) params.search = search;
       if (filterRole !== "all") params.role = filterRole;
       const { data } = await api.get("/users", { params });
-      setUsers(data.results || []);
+      const allUsers: UserItem[] = data.results || [];
+      setUsers(allUsers.filter((u) => STAFF_ROLES.includes(u.role)));
       setPagination({
         page: data.page || page,
         limit: data.limit || limit,
@@ -115,14 +118,15 @@ export default function UsersPage() {
   };
 
   const roleLabels: Record<string, string> = {
-    all: "All Roles", USER: "User", ADMIN: "Admin",
+    all: "All Roles", USER: "Staff", ADMIN: "Admin", MODERATOR: "Moderator", SUPER_ADMIN: "Super Admin",
+    MANAGER: "Manager", SUPPORT: "Support", FIELD_TECHNICIAN: "Field Technician", ENGINEER: "Engineer",
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">User Management</h1>
-        <p className="text-slate-500 text-[15px] mt-0.5">Manage registered users and their roles</p>
+        <h1 className="text-2xl font-bold text-slate-800">Employees</h1>
+        <p className="text-slate-500 text-[15px] mt-0.5">Manage staff, technicians, and administrators</p>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -138,8 +142,14 @@ export default function UsersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="USER">User</SelectItem>
+            <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
             <SelectItem value="ADMIN">Admin</SelectItem>
+            <SelectItem value="MANAGER">Manager</SelectItem>
+            <SelectItem value="SUPPORT">Support</SelectItem>
+            <SelectItem value="FIELD_TECHNICIAN">Field Technician</SelectItem>
+            <SelectItem value="ENGINEER">Engineer</SelectItem>
+            <SelectItem value="MODERATOR">Moderator</SelectItem>
+            <SelectItem value="USER">Staff</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -161,7 +171,7 @@ export default function UsersPage() {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-12">
-                  <div className="h-6 w-6 border-2 border-orange-200 border-t-orange-600 rounded-lg animate-spin mx-auto" />
+                  <div className="h-6 w-6 border-2 border-blue-200 border-t-blue-600 rounded-lg animate-spin mx-auto" />
                 </TableCell></TableRow>
               ) : users.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-12">

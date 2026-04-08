@@ -114,7 +114,7 @@ export default function TicketDetailPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="h-8 w-8 border-2 border-orange-200 border-t-orange-600 rounded-lg animate-spin" />
+      <div className="h-8 w-8 border-2 border-blue-200 border-t-blue-600 rounded-lg animate-spin" />
     </div>
   );
 
@@ -135,7 +135,7 @@ export default function TicketDetailPage() {
           </Link>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm text-orange-600 font-semibold">{ticket.ticketNumber}</span>
+              <span className="font-mono text-sm text-blue-600 font-semibold">{ticket.ticketNumber}</span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLES[ticket.status]}`}>
                 {ticket.status.replace("_", " ")}
               </span>
@@ -175,7 +175,7 @@ export default function TicketDetailPage() {
           {/* Original message */}
           <div className="bg-white border border-slate-200 rounded-xl p-4">
             <div className="flex items-center gap-2.5 mb-3">
-              <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center text-sm font-semibold text-orange-600">
+              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-600">
                 {ticket.customer.fullName.charAt(0).toUpperCase()}
               </div>
               <div>
@@ -197,14 +197,14 @@ export default function TicketDetailPage() {
                 className={cn(
                   "border rounded-xl p-4",
                   isStaff
-                    ? "bg-orange-50/60 border-orange-100"
+                    ? "bg-blue-50/60 border-blue-100"
                     : "bg-white border-slate-200"
                 )}
               >
                 <div className="flex items-center gap-2.5 mb-3">
                   <div className={cn(
                     "h-8 w-8 rounded-full flex items-center justify-center text-sm font-semibold",
-                    isStaff ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-600"
+                    isStaff ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"
                   )}>
                     {isStaff ? <Shield className="h-4 w-4" /> : (r.user.name?.charAt(0).toUpperCase() || "U")}
                   </div>
@@ -212,7 +212,7 @@ export default function TicketDetailPage() {
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold text-slate-700">{r.user.name || r.user.email}</p>
                       {isStaff && (
-                        <span className="text-[9px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                        <span className="text-[9px] font-bold bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded uppercase tracking-wide">
                           {r.user.role}
                         </span>
                       )}
@@ -252,7 +252,7 @@ export default function TicketDetailPage() {
                 <Button
                   type="submit"
                   disabled={sending || !reply.trim()}
-                  className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5"
+                  className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5"
                 >
                   <Send className="h-4 w-4" />
                   {sending ? "Sending..." : "Send Reply"}
@@ -266,7 +266,7 @@ export default function TicketDetailPage() {
                 <Button
                   variant="link"
                   size="sm"
-                  className="text-orange-500 ml-1"
+                  className="text-blue-500 ml-1"
                   onClick={() => handleStatusChange("OPEN")}
                 >
                   Reopen?

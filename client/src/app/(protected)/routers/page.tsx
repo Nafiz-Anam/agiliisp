@@ -185,7 +185,7 @@ export default function RoutersPage() {
           <h1 className="text-2xl font-bold text-slate-800">Routers</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage MikroTik routers</p>
         </div>
-        <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 text-sm">
+        <Button onClick={openCreate} className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5 text-sm">
           <Plus className="h-4 w-4" /> Add Router
         </Button>
       </div>
@@ -204,7 +204,7 @@ export default function RoutersPage() {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">All Statuses</option>
           <option value="ONLINE">Online</option>
@@ -335,11 +335,11 @@ export default function RoutersPage() {
                 <Input id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
               </div>
               <div className="flex items-center gap-2 col-span-2">
-                <input type="checkbox" id="useSSL" checked={form.useSSL} onChange={(e) => setForm((f) => ({ ...f, useSSL: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 accent-orange-500" />
+                <input type="checkbox" id="useSSL" checked={form.useSSL} onChange={(e) => setForm((f) => ({ ...f, useSSL: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 accent-blue-500" />
                 <Label htmlFor="useSSL" className="cursor-pointer">Use SSL (port 8729)</Label>
               </div>
               <div className="flex items-center gap-2 col-span-2">
-                <input type="checkbox" id="syncEnabled" checked={form.syncEnabled} onChange={(e) => setForm((f) => ({ ...f, syncEnabled: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 accent-orange-500" />
+                <input type="checkbox" id="syncEnabled" checked={form.syncEnabled} onChange={(e) => setForm((f) => ({ ...f, syncEnabled: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 accent-blue-500" />
                 <Label htmlFor="syncEnabled" className="cursor-pointer">Enable Auto-Sync</Label>
               </div>
             </div>
@@ -351,7 +351,7 @@ export default function RoutersPage() {
               )}
               <div className="flex gap-2 ml-auto">
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+                <Button type="submit" disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
                   {saving ? "Saving..." : editRouter ? "Update" : "Add Router"}
                 </Button>
               </div>

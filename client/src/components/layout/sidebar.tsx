@@ -14,22 +14,31 @@ import {
     LogOut,
     X,
     Wifi,
+    Server,
+    Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+    Tooltip,
+    TooltipTrigger,
+    TooltipContent,
+} from "@/components/ui/tooltip";
 
 const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/customers", label: "Customers", icon: Users },
-    { href: "/routers", label: "Routers", icon: Router },
-    { href: "/packages", label: "Packages", icon: Package },
     { href: "/resellers", label: "Resellers", icon: Store, adminOnly: true },
-    { href: "/invoices", label: "Invoices", icon: FileText },
+    { href: "/packages", label: "Packages", icon: Package },
+    { href: "/routers", label: "Routers", icon: Router },
+    { href: "/olt", label: "OLT", icon: Server },
+    { href: "/inventory", label: "Inventory", icon: Package },
+    { href: "/invoices", label: "Billing", icon: FileText },
     { href: "/tickets", label: "Support Tickets", icon: HeadphonesIcon },
-    { href: "/users", label: "Users", icon: Activity, adminOnly: true },
+    { href: "/roles", label: "Roles & Permissions", icon: Shield, adminOnly: true },
+    { href: "/users", label: "Employees", icon: Activity, adminOnly: true },
 ] as const;
 
 interface SidebarProps {
@@ -52,11 +61,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         >
             <div className="flex items-center justify-between h-16 px-5 border-b border-slate-100">
                 <Link href="/dashboard" className="flex items-center gap-2.5">
-                    <div className="h-8 w-8 rounded-lg bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                    <div className="h-8 w-8 rounded-lg bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                         <Wifi className="h-4 w-4 text-white" />
                     </div>
                     <span className="font-bold text-[17px] text-slate-800 tracking-tight">
-                        Agiloisp
+                        AgiliOSP
                     </span>
                 </Link>
                 <Button
@@ -70,41 +79,49 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
 
             <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-                {navItems.filter((item) => !("adminOnly" in item && item.adminOnly) || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN").map((item) => {
-                    const isActive =
-                        pathname === item.href ||
-                        pathname.startsWith(item.href + "/");
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={onClose}
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all duration-200",
-                                isActive
-                                    ? "bg-linear-to-r from-orange-500 to-orange-600 text-white"
-                                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50",
-                            )}
-                        >
-                            <item.icon
+                {navItems
+                    .filter(
+                        (item) =>
+                            !("adminOnly" in item && item.adminOnly) ||
+                            user?.role === "ADMIN" ||
+                            user?.role === "SUPER_ADMIN" ||
+                            user?.role === "MANAGER",
+                    )
+                    .map((item) => {
+                        const isActive =
+                            pathname === item.href ||
+                            pathname.startsWith(item.href + "/");
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={onClose}
                                 className={cn(
-                                    "h-[18px] w-[18px]",
+                                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all duration-200",
                                     isActive
-                                        ? "text-white/90"
-                                        : "text-slate-400",
+                                        ? "bg-linear-to-r from-blue-500 to-blue-600 text-white"
+                                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50",
                                 )}
-                            />
-                            {item.label}
-                        </Link>
-                    );
-                })}
+                            >
+                                <item.icon
+                                    className={cn(
+                                        "h-[18px] w-[18px]",
+                                        isActive
+                                            ? "text-white/90"
+                                            : "text-slate-400",
+                                    )}
+                                />
+                                {item.label}
+                            </Link>
+                        );
+                    })}
             </nav>
 
             {/* User + Footer */}
             <div className="border-t border-slate-100">
                 <div className="p-3">
                     <div className="flex items-center gap-3 px-3 py-2.5">
-                        <div className="h-9 w-9 rounded-lg bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center text-sm font-semibold text-white shrink-0">
+                        <div className="h-9 w-9 rounded-lg bg-linear-to-br from-blue-500 to-blue-600 flex items-center justify-center text-sm font-semibold text-white shrink-0">
                             {user?.name?.charAt(0)?.toUpperCase() || "U"}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -113,7 +130,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                                     {user?.name || "User"}
                                 </p>
                                 <Badge
-                                    variant={user?.role === "ADMIN" ? "default" : "secondary"}
+                                    variant={
+                                        user?.role === "ADMIN"
+                                            ? "default"
+                                            : "secondary"
+                                    }
                                     className={cn(
                                         "text-[9px] px-1.5 py-0 h-4 font-bold tracking-wide rounded-[4px]",
                                         user?.role === "ADMIN"
@@ -124,7 +145,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                                     {user?.role || "USER"}
                                 </Badge>
                             </div>
-                            <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
+                            <p className="text-[11px] text-slate-400 truncate">
+                                {user?.email}
+                            </p>
                         </div>
                         <Tooltip>
                             <TooltipTrigger
@@ -133,7 +156,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                                         variant="ghost"
                                         size="icon"
                                         className="h-8 w-8 text-red-400 bg-red-50 hover:text-red-600 hover:bg-red-100 shrink-0"
-                                        onClick={() => { logout(); window.location.href = "/login"; }}
+                                        onClick={() => {
+                                            logout();
+                                            window.location.href = "/login";
+                                        }}
                                     />
                                 }
                             >
@@ -147,9 +173,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                             <div className="h-1.5 w-1.5 rounded-sm bg-emerald-500" />
-                            <span className="text-[10px] text-slate-400">System Online</span>
+                            <span className="text-[10px] text-slate-400">
+                                System Online
+                            </span>
                         </div>
-                        <span className="text-[10px] text-slate-300">v1.0.0</span>
+                        <span className="text-[10px] text-slate-300">
+                            v1.0.0
+                        </span>
                     </div>
                 </div>
             </div>

@@ -2,6 +2,7 @@ import httpStatus from 'http-status';
 import { InvoiceStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/client';
 import ApiError from '../utils/ApiError';
 import prisma from '../client';
+import logger from '../config/logger';
 
 const generateInvoiceNumber = async (): Promise<string> => {
   const count = await prisma.invoice.count();
@@ -179,7 +180,7 @@ const addPayment = async (
 ) => {
   const invoice = await prisma.invoice.findUnique({
     where: { id: invoiceId },
-    include: { customer: true },
+    include: { customer: { select: { id: true, status: true, username: true } } },
   });
   if (!invoice) throw new ApiError(httpStatus.NOT_FOUND, 'Invoice not found');
 
@@ -219,6 +220,17 @@ const addPayment = async (
       },
     }),
   ]);
+
+  // Auto-reactivate suspended customer when invoice is fully paid
+  if (newStatus === InvoiceStatus.PAID && invoice.customer?.status === 'SUSPENDED') {
+    try {
+      const customerService = require('./customer.service').default;
+      await customerService.activateCustomer(invoice.customerId);
+      logger.info(`Auto-reactivated customer ${invoice.customer.username} after full payment on invoice ${invoice.invoiceNumber}`);
+    } catch (err) {
+      logger.error(`Failed to auto-reactivate customer ${invoice.customerId}`, err);
+    }
+  }
 
   return payment;
 };
@@ -260,6 +272,121 @@ const autoGenerateInvoices = async (dueDate: Date, createdBy?: string) => {
   return { created };
 };
 
+const getBillingDashboard = async () => {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  const next7Days = new Date();
+  next7Days.setDate(next7Days.getDate() + 7);
+
+  const [
+    revenueThisMonth,
+    revenueLastMonth,
+    outstanding,
+    overdueInvoices,
+    suspendedCustomers,
+    totalGenerated,
+    totalPaid,
+    upcomingInvoices,
+    recentPayments,
+    atRiskCustomers,
+  ] = await Promise.all([
+    prisma.payment.aggregate({ where: { status: 'COMPLETED', paymentDate: { gte: startOfMonth } }, _sum: { amount: true } }),
+    prisma.payment.aggregate({ where: { status: 'COMPLETED', paymentDate: { gte: startOfLastMonth, lte: endOfLastMonth } }, _sum: { amount: true } }),
+    prisma.invoice.aggregate({ where: { status: { in: ['SENT', 'PARTIALLY_PAID', 'OVERDUE'] } }, _sum: { balanceDue: true }, _count: true }),
+    prisma.invoice.findMany({ where: { status: 'OVERDUE' }, include: { customer: { select: { id: true, fullName: true, username: true } } }, orderBy: { dueDate: 'asc' }, take: 20 }),
+    prisma.ispCustomer.count({ where: { status: 'SUSPENDED' } }),
+    prisma.invoice.aggregate({ where: { status: { not: 'CANCELLED' } }, _sum: { totalAmount: true }, _count: true }),
+    prisma.invoice.aggregate({ where: { status: 'PAID' }, _sum: { totalAmount: true }, _count: true }),
+    prisma.invoice.findMany({ where: { status: { in: ['SENT', 'DRAFT'] }, dueDate: { gte: now, lte: next7Days } }, include: { customer: { select: { id: true, fullName: true, username: true } } }, orderBy: { dueDate: 'asc' }, take: 10 }),
+    prisma.payment.findMany({ where: { status: 'COMPLETED' }, include: { invoice: { select: { invoiceNumber: true } } }, orderBy: { paymentDate: 'desc' }, take: 10 }),
+    prisma.ispCustomer.findMany({
+      where: {
+        status: 'ACTIVE',
+        autoSuspend: true,
+        invoices: { some: { status: 'OVERDUE' } },
+      },
+      select: { id: true, fullName: true, username: true, autoSuspendDays: true },
+      take: 20,
+    }),
+  ]);
+
+  const totalGen = Number(totalGenerated._sum.totalAmount || 0);
+  const totalPd = Number(totalPaid._sum.totalAmount || 0);
+
+  return {
+    revenueThisMonth: Number(revenueThisMonth._sum.amount || 0),
+    revenueLastMonth: Number(revenueLastMonth._sum.amount || 0),
+    totalOutstanding: Number(outstanding._sum.balanceDue || 0),
+    outstandingCount: outstanding._count,
+    overdueCount: overdueInvoices.length,
+    overdueAmount: overdueInvoices.reduce((sum, inv) => sum + Number(inv.balanceDue), 0),
+    overdueInvoices,
+    suspendedCustomers,
+    collectionRate: totalGen > 0 ? Math.round((totalPd / totalGen) * 100) : 0,
+    totalInvoicesGenerated: totalGenerated._count,
+    totalInvoicesPaid: totalPaid._count,
+    upcomingInvoices,
+    recentPayments: recentPayments.map(p => ({
+      ...p,
+      amount: Number(p.amount),
+      invoiceNumber: (p as any).invoice?.invoiceNumber || null,
+    })),
+    atRiskCustomers,
+  };
+};
+
+const getPayments = async (options: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  paymentMethod?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}) => {
+  const { search, paymentMethod, sortBy = 'paymentDate', sortOrder = 'desc' } = options;
+  const page = Number(options.page) || 1;
+  const limit = Number(options.limit) || 10;
+
+  const where: any = { status: 'COMPLETED' };
+  if (paymentMethod) where.paymentMethod = paymentMethod;
+  if (search) {
+    where.OR = [
+      { referenceNumber: { contains: search, mode: 'insensitive' } },
+      { invoice: { invoiceNumber: { contains: search, mode: 'insensitive' } } },
+    ];
+  }
+
+  const skip = (page - 1) * limit;
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        invoice: { select: { invoiceNumber: true, customerId: true, customer: { select: { id: true, fullName: true, username: true } } } },
+      },
+    }),
+    prisma.payment.count({ where }),
+  ]);
+
+  return {
+    data: payments,
+    meta: { page, limit, totalPages: Math.ceil(total / limit), total },
+  };
+};
+
+const markInvoiceSent = async (id: string) => {
+  const invoice = await prisma.invoice.findUnique({ where: { id } });
+  if (!invoice) throw new ApiError(httpStatus.NOT_FOUND, 'Invoice not found');
+  return prisma.invoice.update({
+    where: { id },
+    data: { status: 'SENT', sentDate: new Date() },
+  });
+};
+
 export default {
   createInvoice,
   getInvoices,
@@ -267,4 +394,7 @@ export default {
   updateInvoiceById,
   addPayment,
   autoGenerateInvoices,
+  getBillingDashboard,
+  getPayments,
+  markInvoiceSent,
 };

@@ -5,20 +5,17 @@ import deviceController from './device.controller';
 import profileController from './profile.controller';
 import healthController from './health.controller';
 import * as ipSecurityController from './ipSecurity.controller';
-import categoryController from './category.controller';
-import productController from './product.controller';
-import orderController from './order.controller';
-import restockController from './restock.controller';
-import dashboardController from './dashboard.controller';
-import inventoryActivityController from './inventoryActivity.controller';
 import ispDashboardController from './ispDashboard.controller';
 import ispCustomerController from './ispCustomer.controller';
+import oltController from './olt.controller';
+import oltDashboardController from './oltDashboard.controller';
 import ispRouterController from './ispRouter.controller';
 import ispPackageController from './ispPackage.controller';
 import ispResellerController from './ispReseller.controller';
 import ispInvoiceController from './ispInvoice.controller';
 import ispTicketController from './ispTicket.controller';
 import ispRouterLogController from './ispRouterLog.controller';
+import ispInventoryController from './ispInventory.controller';
 
 export {
   authController,
@@ -28,18 +25,15 @@ export {
   profileController,
   healthController,
   ipSecurityController,
-  categoryController,
-  productController,
-  orderController,
-  restockController,
-  dashboardController,
-  inventoryActivityController,
   ispDashboardController,
   ispCustomerController,
+  oltController,
+  oltDashboardController,
   ispRouterController,
   ispPackageController,
   ispResellerController,
   ispInvoiceController,
   ispTicketController,
   ispRouterLogController,
+  ispInventoryController,
 };

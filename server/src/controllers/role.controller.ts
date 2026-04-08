@@ -276,6 +276,20 @@ const checkUserPermission = catchAsync(async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Get all permissions
+ * @route GET /v1/roles/permissions/all
+ * @access Private (Admin only)
+ */
+const getAllPermissions = catchAsync(async (req: Request, res: Response) => {
+  try {
+    const permissions = await rbacService.getAllPermissions();
+    return sendSuccess(res, { permissions }, 'Permissions retrieved successfully');
+  } catch (error) {
+    return sendError(res, ErrorCode.INTERNAL_SERVER_ERROR, 'Failed to retrieve permissions');
+  }
+});
+
 export {
   createRole,
   getRoles,
@@ -289,4 +303,5 @@ export {
   getUserRoles,
   getUserPermissions,
   checkUserPermission,
+  getAllPermissions,
 };

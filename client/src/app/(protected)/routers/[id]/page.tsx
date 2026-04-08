@@ -199,7 +199,7 @@ export default function RouterDetailPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="h-8 w-8 border-2 border-orange-200 border-t-orange-600 rounded-lg animate-spin" />
+      <div className="h-8 w-8 border-2 border-blue-200 border-t-blue-600 rounded-lg animate-spin" />
     </div>
   );
 
@@ -249,7 +249,7 @@ export default function RouterDetailPage() {
           <MiniStat icon={Users} label="Online Customers" value={stats.onlineCustomers} color="blue" />
           <MiniStat icon={Users} label="Offline Customers" value={stats.offlineCustomers} color="slate" />
           <MiniStat icon={Package} label="Packages" value={stats.totalPackages} color="purple" />
-          <MiniStat icon={Clock} label="Last Sync" value={stats.lastSync ? format(new Date(stats.lastSync), "HH:mm") : "Never"} color="orange" />
+          <MiniStat icon={Clock} label="Last Sync" value={stats.lastSync ? format(new Date(stats.lastSync), "HH:mm") : "Never"} color="blue" />
         </div>
       )}
 
@@ -267,7 +267,7 @@ export default function RouterDetailPage() {
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
                 tab === key
-                  ? "border-orange-500 text-orange-600"
+                  ? "border-blue-500 text-blue-600"
                   : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
               )}
             >
@@ -363,7 +363,7 @@ export default function RouterDetailPage() {
                             {log.logType}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-[12px] text-orange-600">{log.username || "—"}</td>
+                        <td className="px-3 py-2 text-[12px] text-blue-600">{log.username || "—"}</td>
                         <td className="px-3 py-2 text-[12px] text-slate-700 max-w-[400px] truncate">{log.message}</td>
                       </tr>
                     ))}
@@ -519,7 +519,7 @@ function MiniStat({ icon: Icon, label, value, color }: { icon: React.ElementType
     blue: "bg-blue-50 border-blue-100 text-blue-600",
     slate: "bg-slate-50 border-slate-100 text-slate-500",
     purple: "bg-purple-50 border-purple-100 text-purple-600",
-    orange: "bg-orange-50 border-orange-100 text-orange-600",
+    blue: "bg-blue-50 border-blue-100 text-blue-600",
   };
   const c = colors[color] || colors.slate;
   return (

@@ -108,13 +108,6 @@ model User {
   dataProcessingRecords DataProcessingRecord[]
   apiKeys               ApiKey[]
 
-  // Inventory & Order Relations
-  createdCategories   Category[]          @relation("CategoryCreator")
-  createdProducts     Product[]           @relation("ProductCreator")
-  createdOrders       Order[]             @relation("OrderCreator")
-  restockedItems      RestockQueue[]      @relation("RestockedBy")
-  inventoryActivities InventoryActivity[] @relation("ActivityLogUser")
-
   // ISP CRM Relations
   routers          Router[]
   internetPackages InternetPackage[]
@@ -129,6 +122,13 @@ model User {
   readLogs         AppSystemLog[]    @relation("LogReadBy")
   resellerProfile  Reseller?         @relation("UserResellerProfile")
   customerProfile  IspCustomer?      @relation("UserCustomerProfile")
+  createdOlts      OLT[]             @relation("OLTCreator")
+  olts             OLT[]
+
+  // Inventory Relations
+  createdInventoryItems  InventoryItem[]          @relation("InventoryItemCreator")
+  inventoryTransactions  InventoryTransaction[]   @relation("TransactionPerformer")
+  createdPurchaseOrders  PurchaseOrder[]           @relation("PurchaseOrderCreator")
 
   @@map("users")
 }
@@ -274,6 +274,10 @@ enum Role {
   ADMIN
   MODERATOR
   SUPER_ADMIN
+  MANAGER
+  SUPPORT
+  FIELD_TECHNICIAN
+  ENGINEER
   RESELLER
   CUSTOMER
 }
@@ -646,144 +650,6 @@ model SessionSecurityEvent {
 // Inventory & Order Management
 // =============================================
 
-enum ProductStatus {
-  ACTIVE
-  OUT_OF_STOCK
-}
-
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  SHIPPED
-  DELIVERED
-  CANCELLED
-}
-
-enum RestockPriority {
-  HIGH
-  MEDIUM
-  LOW
-}
-
-enum RestockStatus {
-  PENDING
-  COMPLETED
-}
-
-model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdBy   String?  @map("created_by")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  products Product[]
-  creator  User?     @relation("CategoryCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-
-  @@map("categories")
-}
-
-model Product {
-  id                String        @id @default(cuid())
-  name              String
-  sku               String        @unique
-  categoryId        String        @map("category_id")
-  price             Decimal       @db.Decimal(10, 2)
-  stock             Int           @default(0)
-  minStockThreshold Int           @default(5) @map("min_stock_threshold")
-  status            ProductStatus @default(ACTIVE)
-  description       String?
-  createdBy         String?       @map("created_by")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-
-  category       Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  orderItems     OrderItem[]
-  restockEntries RestockQueue[]
-  creator        User?          @relation("ProductCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-
-  @@index([categoryId])
-  @@index([status])
-  @@index([stock])
-  @@map("products")
-}
-
-model Order {
-  id           String      @id @default(cuid())
-  orderNumber  String      @unique @map("order_number")
-  customerName String      @map("customer_name")
-  totalAmount  Decimal     @default(0) @map("total_amount") @db.Decimal(12, 2)
-  status       OrderStatus @default(PENDING)
-  notes        String?
-  createdBy    String?     @map("created_by")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
-
-  items   OrderItem[]
-  creator User?       @relation("OrderCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-
-  @@index([status])
-  @@index([createdAt])
-  @@index([customerName])
-  @@map("orders")
-}
-
-model OrderItem {
-  id         String  @id @default(cuid())
-  orderId    String  @map("order_id")
-  productId  String  @map("product_id")
-  quantity   Int
-  unitPrice  Decimal @map("unit_price") @db.Decimal(10, 2)
-  totalPrice Decimal @map("total_price") @db.Decimal(12, 2)
-
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
-
-  @@unique([orderId, productId])
-  @@map("order_items")
-}
-
-model RestockQueue {
-  id              String          @id @default(cuid())
-  productId       String          @map("product_id")
-  currentStock    Int             @map("current_stock")
-  threshold       Int
-  priority        RestockPriority @default(MEDIUM)
-  status          RestockStatus   @default(PENDING)
-  restockedBy     String?         @map("restocked_by")
-  restockedAt     DateTime?       @map("restocked_at")
-  restockQuantity Int?            @map("restock_quantity")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
-
-  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  restockedByUser User?   @relation("RestockedBy", fields: [restockedBy], references: [id], onDelete: SetNull)
-
-  @@index([priority])
-  @@index([status])
-  @@index([productId])
-  @@map("restock_queue")
-}
-
-model InventoryActivity {
-  id          String   @id @default(cuid())
-  action      String
-  entityType  String   @map("entity_type")
-  entityId    String?  @map("entity_id")
-  description String
-  metadata    Json?
-  userId      String?  @map("user_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-
-  user User? @relation("ActivityLogUser", fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([createdAt])
-  @@index([entityType])
-  @@map("inventory_activities")
-}
-
 // =============================================
 // ISP CRM System Models
 // =============================================
@@ -1019,8 +885,10 @@ model IspCustomer {
   invoices     Invoice[]
   tickets      SupportTicket[]
   creator      User?           @relation("CustomerCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  routerLogs   RouterLog[]
-  trafficStats TrafficStat[]
+  routerLogs              RouterLog[]
+  trafficStats            TrafficStat[]
+  onus                    Onu[]
+  inventoryTransactions   InventoryTransaction[]
 
   @@index([resellerId])
   @@index([routerId])
@@ -1428,4 +1296,484 @@ model LogAlertRule {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("log_alert_rules")
+}
+
+// =============================================
+// OLT Management System Models
+// =============================================
+
+enum OLTStatus {
+  PENDING
+  APPROVED
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+  ERROR
+  DECOMMISSIONED
+}
+
+enum PonTechnology {
+  GPON
+  XG_PON
+  XGS_PON
+  NG_PON2
+  EPON
+  GEPON
+}
+
+enum PortType {
+  PON
+  Ethernet
+  Management
+  Uplink
+}
+
+enum PortStatus {
+  ACTIVE
+  INACTIVE
+  FAULT
+  DISABLED
+  TESTING
+}
+
+enum OnuStatus {
+  ACTIVE
+  INACTIVE
+  FAULT
+  BLOCKED
+  PROVISIONING
+  UNKNOWN
+}
+
+enum AlertType {
+  CPU_HIGH
+  MEMORY_HIGH
+  TEMPERATURE_HIGH
+  POWER_FAILURE
+  LINK_DOWN
+  SIGNAL_LOW
+  DEVICE_OFFLINE
+  AUTHENTICATION_FAILURE
+  CONFIGURATION_ERROR
+  MAINTENANCE_REQUIRED
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  SUPPRESSED
+}
+
+enum MaintenanceType {
+  FIRMWARE_UPGRADE
+  CONFIGURATION_UPDATE
+  HARDWARE_REPLACEMENT
+  CLEANING
+  INSPECTION
+  EMERGENCY
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+model OLT {
+  id           String     @id @default(cuid())
+  name         String     @unique
+  location     String?
+  ipAddress    String     @unique @map("ip_address")
+  serialNumber String?    @unique @map("serial_number")
+  status       OLTStatus  @default(PENDING)
+  oltBrandId   String     @map("olt_brand_id")
+  oltBrand     OLTBrand   @relation(fields: [oltBrandId], references: [id])
+  oltVersionId String     @map("olt_version_id")
+  oltVersion   OLTVersion @relation(fields: [oltVersionId], references: [id])
+
+  // PON Technology
+  ponTechnology PonTechnology @map("pon_technology")
+  maxCapacity   Int           @map("max_capacity") // Max subscribers
+  currentLoad   Int           @default(0) @map("current_load")
+
+  // Basic Monitoring
+  cpuUsage     Float     @default(0) @map("cpu_usage")
+  ramUsage     Float     @default(0) @map("ram_usage")
+  temperature  Float?    @map("temperature")
+  uptime       BigInt?   @map("uptime") // seconds
+  lastSyncAt   DateTime? @map("last_sync_at")
+  lastRebootAt DateTime? @map("last_reboot_at")
+
+  // Geographic & Location Data
+  latitude  Float?  @map("latitude")
+  longitude Float?  @map("longitude")
+  address   String?
+
+  // Network Configuration
+  managementInterface String? @map("management_interface")
+  snmpCommunity       String? @map("snmp_community")
+  sshPort             Int     @default(22) @map("ssh_port")
+
+  // Status & Control
+  maintenanceMode  Boolean @default(false) @map("maintenance_mode")
+  autoProvisioning Boolean @default(true) @map("auto_provisioning")
+
+  // Relations
+  onus                 Onu[]
+  ports                OLTPort[]
+  oltAlerts            OLTAlert[]
+  maintenanceSchedules MaintenanceSchedule[]
+
+  // Metadata
+  isActive  Boolean  @default(true) @map("is_active")
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  creator User?   @relation("OLTCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  user    User?   @relation(fields: [userId], references: [id])
+  userId  String?
+
+  @@index([status])
+  @@index([oltBrandId])
+  @@index([ponTechnology])
+  @@index([isActive])
+  @@map("olts")
+}
+
+model OLTBrand {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  displayName String?      @map("display_name")
+  description String?
+  logoUrl     String?      @map("logo_url")
+  supportUrl  String?      @map("support_url")
+  olts        OLT[]
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  oltversions OLTVersion[]
+
+  @@map("olt_brands")
+}
+
+model OLTVersion {
+  id            String    @id @default(cuid())
+  version       String    @unique
+  firmware      String?
+  releaseDate   DateTime? @map("release_date")
+  features      Json? // List of features
+  compatibility String? // Compatibility notes
+  oltBrandId    String    @map("olt_brand_id")
+  oltBrand      OLTBrand  @relation(fields: [oltBrandId], references: [id], onDelete: Cascade)
+  olts          OLT[]
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("olt_versions")
+}
+
+model OLTPort {
+  id         String     @id @default(cuid())
+  oltId      String     @map("olt_id")
+  portNumber Int        @map("port_number")
+  portType   PortType   @default(PON)
+  status     PortStatus @default(INACTIVE)
+
+  // ONU Association
+  onuId String? @map("onu_id")
+  onu   Onu?    @relation("PortONU", fields: [onuId], references: [id], onDelete: SetNull)
+
+  // Signal Metrics
+  powerLevel     Float? @map("power_level") // dBm
+  signalStrength Float? @map("signal_strength") // dBm
+  snr            Float? @map("snr") // Signal to Noise Ratio
+  attenuation    Float? @map("attenuation") // dB
+
+  // Traffic Metrics
+  rxPower    Float?  @map("rx_power") // dBm
+  txPower    Float?  @map("tx_power") // dBm
+  dataRateRx BigInt? @default(0) @map("data_rate_rx") // bps
+  dataRateTx BigInt? @default(0) @map("data_rate_tx") // bps
+
+  // Configuration
+  enabled Boolean @default(true)
+  vlanId  Int?    @map("vlan_id")
+
+  // Timestamps
+  lastSeen        DateTime? @map("last_seen")
+  lastSignalCheck DateTime? @map("last_signal_check")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  olt OLT @relation(fields: [oltId], references: [id], onDelete: Cascade)
+
+  @@unique([oltId, portNumber])
+  @@unique([onuId])
+  @@index([status])
+  @@index([portType])
+  @@map("olt_ports")
+}
+
+model Onu {
+  id           String  @id @default(cuid())
+  serialNumber String  @unique @map("serial_number")
+  macAddress   String? @unique @map("mac_address")
+
+  // OLT Association
+  oltId  String   @map("olt_id")
+  portId String?  @map("port_id")
+  olt    OLT      @relation(fields: [oltId], references: [id], onDelete: Cascade)
+  port   OLTPort? @relation("PortONU")
+
+  // Customer Association
+  customerId String?      @map("customer_id")
+  customer   IspCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Device Information
+  onuModel        String? @map("onu_model")
+  onuBrand        String? @map("onu_brand")
+  firmwareVersion String? @map("firmware_version")
+  hardwareVersion String? @map("hardware_version")
+
+  // Status & Performance
+  status      OnuStatus @default(ACTIVE)
+  powerLevel  Float?    @map("power_level") // dBm
+  distance    Float?    @map("distance") // meters
+  temperature Float?    @map("temperature")
+
+  // Traffic Metrics
+  dataRx     BigInt  @default(0) @map("data_rx") // bytes
+  dataTx     BigInt  @default(0) @map("data_tx") // bytes
+  dataRateRx BigInt? @default(0) @map("data_rate_rx") // bps
+  dataRateTx BigInt? @default(0) @map("data_rate_tx") // bps
+
+  // Configuration
+  vlanId       Int?    @map("vlan_id")
+  speedProfile String? @map("speed_profile")
+  qosProfile   String? @map("qos_profile")
+
+  // Features
+  autoProvisioned Boolean @default(false) @map("auto_provisioned")
+  remoteAccess    Boolean @default(false) @map("remote_access")
+
+  // Geographic Data
+  latitude         Float?    @map("latitude")
+  longitude        Float?    @map("longitude")
+  address          String?
+  installationDate DateTime? @map("installation_date")
+
+  // Timestamps
+  lastSyncAt DateTime? @map("last_sync_at")
+  lastSeen   DateTime? @map("last_seen")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([oltId])
+  @@index([customerId])
+  @@index([status])
+  @@index([macAddress])
+  @@map("onus")
+}
+
+// Core Support Models
+model OLTAlert {
+  id             String        @id @default(cuid())
+  oltId          String        @map("olt_id")
+  alertType      AlertType     @map("alert_type")
+  severity       AlertSeverity @default(MEDIUM)
+  title          String
+  description    String
+  value          Float?
+  threshold      Float?
+  status         AlertStatus   @default(ACTIVE)
+  acknowledged   Boolean       @default(false) @map("acknowledged")
+  acknowledgedBy String?       @map("acknowledged_by")
+  acknowledgedAt DateTime?     @map("acknowledged_at")
+  resolvedAt     DateTime?     @map("resolved_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  olt OLT @relation(fields: [oltId], references: [id], onDelete: Cascade)
+
+  @@index([oltId, status])
+  @@index([severity])
+  @@map("olt_alerts")
+}
+
+model MaintenanceSchedule {
+  id           String            @id @default(cuid())
+  oltId        String            @map("olt_id")
+  title        String
+  description  String?
+  scheduledFor DateTime          @map("scheduled_for")
+  duration     Int               @map("duration") // minutes
+  type         MaintenanceType   @map("maintenance_type")
+  status       MaintenanceStatus @default(SCHEDULED)
+  performedBy  String?           @map("performed_by")
+  notes        String?
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  olt OLT @relation(fields: [oltId], references: [id], onDelete: Cascade)
+
+  @@index([oltId, status])
+  @@index([scheduledFor])
+  @@map("maintenance_schedules")
+}
+
+// ═══════════════════════════════════════════════════
+// Inventory Management
+// ═══════════════════════════════════════════════════
+
+model InventoryCategory {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  description String?
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  items InventoryItem[]
+
+  @@map("inventory_categories")
+}
+
+enum TransactionType {
+  PURCHASE_IN
+  DEPLOY_OUT
+  RETURN_IN
+  DAMAGE
+  REPAIR_SEND
+  REPAIR_RETURN
+  ADJUSTMENT
+  SALE
+  DECOMMISSION
+}
+
+enum ItemCondition {
+  NEW
+  GOOD
+  FAIR
+  DAMAGED
+  DEFECTIVE
+  DECOMMISSIONED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model InventoryItem {
+  id                String            @id @default(cuid())
+  name              String
+  sku               String            @unique
+  categoryId        String            @map("category_id")
+  brand             String?
+  model             String?
+  description       String?
+  unitCost          Decimal           @default(0) @map("unit_cost") @db.Decimal(10, 2)
+  sellingPrice      Decimal?          @map("selling_price") @db.Decimal(10, 2)
+  minStockThreshold Int               @default(5) @map("min_stock_threshold")
+  totalQuantity     Int               @default(0) @map("total_quantity")
+  inStockCount      Int               @default(0) @map("in_stock_count")
+  deployedCount     Int               @default(0) @map("deployed_count")
+  damagedCount      Int               @default(0) @map("damaged_count")
+  inRepairCount     Int               @default(0) @map("in_repair_count")
+  isActive          Boolean           @default(true) @map("is_active")
+  createdBy         String?           @map("created_by")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  category          InventoryCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  creator           User?                  @relation("InventoryItemCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  transactions      InventoryTransaction[]
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@index([categoryId])
+  @@index([sku])
+  @@index([isActive])
+  @@map("inventory_items")
+}
+
+model InventoryTransaction {
+  id              String          @id @default(cuid())
+  itemId          String          @map("item_id")
+  type            TransactionType
+  quantity        Int
+  previousQty     Int             @map("previous_qty")
+  newQty          Int             @map("new_qty")
+  condition       ItemCondition   @default(NEW)
+  customerId      String?         @map("customer_id")
+  purchaseOrderId String?         @map("purchase_order_id")
+  reference       String?
+  notes           String?
+  performedBy     String?         @map("performed_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  item          InventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  customer      IspCustomer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  performer     User?          @relation("TransactionPerformer", fields: [performedBy], references: [id], onDelete: SetNull)
+
+  @@index([itemId])
+  @@index([type])
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("inventory_transactions")
+}
+
+model PurchaseOrder {
+  id              String              @id @default(cuid())
+  orderNumber     String              @unique @map("order_number")
+  supplier        String
+  supplierContact String?             @map("supplier_contact")
+  supplierEmail   String?             @map("supplier_email")
+  status          PurchaseOrderStatus @default(DRAFT)
+  orderDate       DateTime            @default(now()) @map("order_date")
+  expectedDate    DateTime?           @map("expected_date")
+  receivedDate    DateTime?           @map("received_date")
+  totalAmount     Decimal             @default(0) @map("total_amount") @db.Decimal(12, 2)
+  notes           String?
+  createdBy       String?             @map("created_by")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  items        PurchaseOrderItem[]
+  transactions InventoryTransaction[]
+  creator      User?                  @relation("PurchaseOrderCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([orderDate])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String  @id @default(cuid())
+  purchaseOrderId  String  @map("purchase_order_id")
+  inventoryItemId  String  @map("inventory_item_id")
+  quantity         Int
+  unitCost         Decimal @map("unit_cost") @db.Decimal(10, 2)
+  totalCost        Decimal @map("total_cost") @db.Decimal(12, 2)
+  receivedQuantity Int     @default(0) @map("received_quantity")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@index([inventoryItemId])
+  @@map("purchase_order_items")
 }

@@ -52,4 +52,33 @@ const autoGenerateInvoices = catchAsync(async (req: Request, res: Response) => {
   );
 });
 
-export default { createInvoice, getInvoices, getInvoiceById, addPayment, autoGenerateInvoices };
+const getBillingDashboard = catchAsync(async (req: Request, res: Response) => {
+  const data = await invoiceService.getBillingDashboard();
+  return sendSuccess(res, data, 'Billing dashboard retrieved', undefined, (req as any).requestId);
+});
+
+const getPayments = catchAsync(async (req: Request, res: Response) => {
+  const result: any = await invoiceService.getPayments(req.query as any);
+  return sendSuccess(
+    res,
+    { payments: result.data },
+    'Payments retrieved',
+    undefined,
+    (req as any).requestId,
+    {
+      page: result.meta.page,
+      limit: result.meta.limit,
+      totalPages: result.meta.totalPages,
+      totalResults: result.meta.total,
+      hasNext: result.meta.page < result.meta.totalPages,
+      hasPrev: result.meta.page > 1,
+    }
+  );
+});
+
+const markInvoiceSent = catchAsync(async (req: Request, res: Response) => {
+  const invoice = await invoiceService.markInvoiceSent(req.params.invoiceId as string);
+  return sendSuccess(res, { invoice }, 'Invoice marked as sent', undefined, (req as any).requestId);
+});
+
+export default { createInvoice, getInvoices, getInvoiceById, addPayment, autoGenerateInvoices, getBillingDashboard, getPayments, markInvoiceSent };

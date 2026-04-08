@@ -4,17 +4,21 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Search, RefreshCw, MoreHorizontal, Eye, DollarSign,
   CheckCircle, Clock, AlertCircle, XCircle, FileText,
-  Plus, Trash2, Zap,
+  Plus, Trash2, Zap, TrendingUp, Users, BarChart3,
+  CreditCard, Ban,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import api from "@/lib/api";
-import { Invoice, InvoiceStatus, PaginationMeta, IspCustomer } from "@/types";
+import { Invoice, InvoiceStatus, PaginationMeta, IspCustomer, Payment } from "@/types";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -38,7 +42,35 @@ const STATUS_ICON: Record<InvoiceStatus, React.ReactNode> = {
   REFUNDED: <RefreshCw className="h-3.5 w-3.5" />,
 };
 
+const PAYMENT_METHODS: Record<string, string> = {
+  CASH: "bg-emerald-100 text-emerald-700",
+  BANK_TRANSFER: "bg-blue-100 text-blue-700",
+  MOBILE_MONEY: "bg-purple-100 text-purple-700",
+  CREDIT_CARD: "bg-amber-100 text-amber-700",
+  DEBIT_CARD: "bg-amber-100 text-amber-700",
+  CHECK: "bg-slate-100 text-slate-700",
+  ONLINE_PAYMENT: "bg-cyan-100 text-cyan-700",
+  AGENT_COLLECTED: "bg-indigo-100 text-indigo-700",
+};
+
+function fmt(n: number) { return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+function fmtLabel(s: string) { return s.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
+
 export default function InvoicesPage() {
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Dashboard
+  const [dashboard, setDashboard] = useState<any>(null);
+  const [dashLoading, setDashLoading] = useState(true);
+
+  // Payments tab
+  const [payments, setPayments] = useState<any[]>([]);
+  const [paymentsMeta, setPaymentsMeta] = useState<PaginationMeta | null>(null);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsSearch, setPaymentsSearch] = useState("");
+  const [paymentsMethodFilter, setPaymentsMethodFilter] = useState("");
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,7 +127,31 @@ export default function InvoicesPage() {
     }
   }, [page, search, statusFilter, dateFrom, dateTo, sortBy, sortOrder]);
 
-  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+  const fetchDashboard = useCallback(async () => {
+    setDashLoading(true);
+    try {
+      const res = await api.get("/isp/invoices/dashboard");
+      setDashboard(res.data.data);
+    } catch { toast.error("Failed to load billing dashboard"); }
+    finally { setDashLoading(false); }
+  }, []);
+
+  const fetchPayments = useCallback(async () => {
+    setPaymentsLoading(true);
+    try {
+      const params: any = { page: paymentsPage, limit: 15, sortBy: "paymentDate", sortOrder: "desc" };
+      if (paymentsSearch) params.search = paymentsSearch;
+      if (paymentsMethodFilter) params.paymentMethod = paymentsMethodFilter;
+      const res = await api.get("/isp/invoices/payments", { params });
+      setPayments(res.data.data.payments || []);
+      setPaymentsMeta(res.data.meta?.pagination || null);
+    } catch { toast.error("Failed to load payments"); }
+    finally { setPaymentsLoading(false); }
+  }, [paymentsPage, paymentsSearch, paymentsMethodFilter]);
+
+  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+  useEffect(() => { if (activeTab === "invoices") fetchInvoices(); }, [activeTab, fetchInvoices]);
+  useEffect(() => { if (activeTab === "payments") fetchPayments(); }, [activeTab, fetchPayments]);
 
   const openCreate = () => {
     api.get("/isp/customers?limit=200&status=ACTIVE&sortBy=fullName&sortOrder=asc").then((r) => setCustomers(r.data.data.customers || [])).catch(() => {});
@@ -199,13 +255,104 @@ export default function InvoicesPage() {
 
   const totalOutstanding = invoices.filter((i) => !["PAID", "CANCELLED", "REFUNDED"].includes(i.status)).reduce((sum, i) => sum + i.balanceDue, 0);
 
+  const DashboardCard = ({ icon, label, value, className = "" }: { icon: React.ReactNode; label: string; value: string | number; className?: string }) => (
+    <Card className={`${className}`}>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="h-10 w-10 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">{icon}</div>
+        <div><p className="text-xs text-slate-500">{label}</p><p className="text-xl font-bold text-slate-800">{value}</p></div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Billing Management</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Manage invoices, payments, and billing automation</p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
+        </TabsList>
+
+        {/* ══════ Dashboard Tab ══════ */}
+        <TabsContent value="dashboard" className="space-y-5">
+          {dashLoading ? (
+            <div className="flex items-center justify-center py-16"><div className="h-6 w-6 border-2 border-blue-200 border-t-blue-600 rounded-lg animate-spin" /></div>
+          ) : dashboard ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <DashboardCard icon={<TrendingUp className="h-5 w-5 text-emerald-600" />} label="Revenue This Month" value={fmt(dashboard.revenueThisMonth)} />
+                <DashboardCard icon={<BarChart3 className="h-5 w-5 text-blue-600" />} label="Revenue Last Month" value={fmt(dashboard.revenueLastMonth)} />
+                <DashboardCard icon={<DollarSign className="h-5 w-5 text-amber-600" />} label="Outstanding" value={fmt(dashboard.totalOutstanding)} className={dashboard.totalOutstanding > 0 ? "border-amber-200" : ""} />
+                <DashboardCard icon={<AlertCircle className="h-5 w-5 text-red-600" />} label="Overdue" value={fmt(dashboard.overdueAmount)} className={dashboard.overdueAmount > 0 ? "border-red-200 bg-red-50" : ""} />
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <DashboardCard icon={<CheckCircle className="h-5 w-5 text-emerald-600" />} label="Collection Rate" value={`${dashboard.collectionRate}%`} />
+                <DashboardCard icon={<Ban className="h-5 w-5 text-red-600" />} label="Suspended Customers" value={dashboard.suspendedCustomers} className={dashboard.suspendedCustomers > 0 ? "border-red-200" : ""} />
+                <DashboardCard icon={<FileText className="h-5 w-5 text-blue-600" />} label="Invoices Generated" value={dashboard.totalInvoicesGenerated} />
+                <DashboardCard icon={<CreditCard className="h-5 w-5 text-emerald-600" />} label="Invoices Paid" value={dashboard.totalInvoicesPaid} />
+              </div>
+
+              {dashboard.atRiskCustomers?.length > 0 && (
+                <Card>
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold text-slate-700 mb-3 flex items-center gap-2"><AlertCircle className="h-4 w-4 text-red-500" /> At Risk — Approaching Suspension</h3>
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Customer</TableHead><TableHead>Username</TableHead><TableHead className="text-right">Suspend After (days)</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {dashboard.atRiskCustomers.map((c: any) => (
+                          <TableRow key={c.id}><TableCell className="font-medium">{c.fullName}</TableCell><TableCell className="text-slate-500">{c.username}</TableCell><TableCell className="text-right"><Badge className="bg-red-100 text-red-700">{c.autoSuspendDays}d</Badge></TableCell></TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {dashboard.upcomingInvoices?.length > 0 && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-slate-700 mb-3">Upcoming Invoices (7 days)</h3>
+                      <div className="space-y-2">
+                        {dashboard.upcomingInvoices.map((inv: any) => (
+                          <div key={inv.id} className="flex justify-between text-sm border-b border-slate-100 pb-2">
+                            <span className="text-slate-600">{inv.customer?.fullName} — {inv.invoiceNumber}</span>
+                            <span className="font-medium">{fmt(Number(inv.totalAmount))}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {dashboard.recentPayments?.length > 0 && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-slate-700 mb-3">Recent Payments</h3>
+                      <div className="space-y-2">
+                        {dashboard.recentPayments.map((p: any, i: number) => (
+                          <div key={i} className="flex justify-between text-sm border-b border-slate-100 pb-2">
+                            <span className="text-slate-600">{p.invoiceNumber || "—"}</span>
+                            <span className="font-medium text-emerald-600">{fmt(p.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </>
+          ) : null}
+        </TabsContent>
+
+        {/* ══════ Invoices Tab ══════ */}
+        <TabsContent value="invoices" className="space-y-5">
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Invoices</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Billing and payment management</p>
-        </div>
+        <div></div>
         <div className="flex items-center gap-2">
           {totalOutstanding > 0 && (
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -220,7 +367,7 @@ export default function InvoicesPage() {
           >
             <Zap className="h-4 w-4" /> Auto-Generate
           </Button>
-          <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white gap-1.5 text-sm h-9">
+          <Button onClick={openCreate} className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5 text-sm h-9">
             <Plus className="h-4 w-4" /> New Invoice
           </Button>
         </div>
@@ -234,7 +381,7 @@ export default function InvoicesPage() {
         <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
         >
           <option value="">All Statuses</option>
           <option value="DRAFT">Draft</option>
@@ -248,14 +395,14 @@ export default function InvoicesPage() {
           type="date"
           value={dateFrom}
           onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
           placeholder="From"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
         />
         <Button variant="outline" size="sm" onClick={fetchInvoices} className="h-9 gap-1.5 text-sm">
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
@@ -291,7 +438,7 @@ export default function InvoicesPage() {
                   <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">No invoices found</td></tr>
                 ) : invoices.map((inv) => (
                   <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                    <td className="px-5 py-3.5 font-mono text-orange-600 font-medium text-[13px]">
+                    <td className="px-5 py-3.5 font-mono text-blue-600 font-medium text-[13px]">
                       {inv.invoiceNumber}
                     </td>
                     <td className="px-4 py-3.5">
@@ -405,7 +552,7 @@ export default function InvoicesPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Payment Method *</Label>
-                <select value={paymentForm.method} onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))} className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-300">
+                <select value={paymentForm.method} onChange={(e) => setPaymentForm((f) => ({ ...f, method: e.target.value }))} className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
                   <option value="CASH">Cash</option>
                   <option value="BANK_TRANSFER">Bank Transfer</option>
                   <option value="MOBILE_MONEY">Mobile Money</option>
@@ -443,7 +590,7 @@ export default function InvoicesPage() {
               <select
                 value={createForm.customerId}
                 onChange={(e) => handleCustomerSelect(e.target.value)}
-                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                 required
               >
                 <option value="">Select active customer...</option>
@@ -483,7 +630,7 @@ export default function InvoicesPage() {
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
-              <Button type="submit" disabled={savingCreate} className="bg-orange-500 hover:bg-orange-600 text-white">
+              <Button type="submit" disabled={savingCreate} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {savingCreate ? "Creating..." : "Create Invoice"}
               </Button>
             </div>
@@ -517,6 +664,64 @@ export default function InvoicesPage() {
           </div>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        {/* ══════ Payments Tab ══════ */}
+        <TabsContent value="payments" className="space-y-5">
+          <div className="flex flex-wrap gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input placeholder="Search by reference or invoice..." value={paymentsSearch}
+                onChange={(e) => { setPaymentsSearch(e.target.value); setPaymentsPage(1); }}
+                className="pl-9 w-64 h-9 bg-white border-slate-200 text-sm" />
+            </div>
+            <select value={paymentsMethodFilter} onChange={(e) => { setPaymentsMethodFilter(e.target.value); setPaymentsPage(1); }}
+              className="h-9 px-3 text-sm border border-slate-200 rounded-md bg-white">
+              <option value="">All Methods</option>
+              {Object.keys(PAYMENT_METHODS).map(m => <option key={m} value={m}>{fmtLabel(m)}</option>)}
+            </select>
+          </div>
+
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/80">
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase">Date</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase">Invoice</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase">Customer</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">Amount</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase">Method</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase">Reference</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paymentsLoading ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-12"><div className="h-6 w-6 border-2 border-blue-200 border-t-blue-600 rounded-lg animate-spin mx-auto" /></TableCell></TableRow>
+                  ) : payments.length === 0 ? (
+                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-slate-400">No payments found</TableCell></TableRow>
+                  ) : payments.map((p: any) => (
+                    <TableRow key={p.id} className="hover:bg-slate-50/50">
+                      <TableCell className="text-sm">{format(new Date(p.paymentDate), "MMM d, yyyy")}</TableCell>
+                      <TableCell className="text-sm font-medium">{p.invoice?.invoiceNumber || "—"}</TableCell>
+                      <TableCell className="text-sm text-slate-600">{p.invoice?.customer?.fullName || "—"}</TableCell>
+                      <TableCell className="text-sm font-semibold text-right text-emerald-600">{fmt(Number(p.amount))}</TableCell>
+                      <TableCell><Badge className={`text-xs ${PAYMENT_METHODS[p.paymentMethod] || "bg-slate-100 text-slate-600"}`}>{fmtLabel(p.paymentMethod)}</Badge></TableCell>
+                      <TableCell className="text-sm text-slate-500">{p.referenceNumber || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {paymentsMeta && (
+            <DataTablePagination page={paymentsPage} totalPages={paymentsMeta.totalPages} totalResults={paymentsMeta.totalResults}
+              limit={15} onPageChange={setPaymentsPage} onLimitChange={() => {}} />
+          )}
+        </TabsContent>
+
+      </Tabs>
     </div>
   );
 }

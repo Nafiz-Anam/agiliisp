@@ -5,7 +5,6 @@ import prisma from '../client';
 
 /**
  * Runs a task once per day at the specified hour (24h format).
- * Uses setInterval checking every hour (no new dependencies).
  */
 const scheduleDaily = (hour: number, task: () => Promise<void>): void => {
   let lastRunDate = '';
@@ -21,26 +20,113 @@ const scheduleDaily = (hour: number, task: () => Promise<void>): void => {
         logger.error(`Scheduled task at hour ${hour} failed`, err);
       }
     }
-  }, 60 * 60 * 1000); // check every hour
+  }, 60 * 60 * 1000);
 };
 
 /**
- * Monthly auto-billing: generate invoices for all ACTIVE customers.
- * Runs daily at 2 AM. Creates invoice with 7-day payment term.
+ * Mark overdue invoices: finds SENT/PARTIALLY_PAID invoices past due date + grace period.
+ * Runs daily at 1 AM.
  */
-const scheduleMonthlyBilling = (): void => {
-  scheduleDaily(2, async () => {
-    logger.info('ISP Scheduler: Running auto-billing job...');
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
-    const result = await invoiceService.autoGenerateInvoices(dueDate, 'SYSTEM');
-    logger.info(`ISP Scheduler: Auto-billing created ${result.created} invoices`);
+const scheduleOverdueMarking = (): void => {
+  scheduleDaily(1, async () => {
+    logger.info('ISP Scheduler: Running overdue marking job...');
+
+    const now = new Date();
+    const overdueInvoices = await prisma.invoice.findMany({
+      where: {
+        status: { in: ['SENT', 'PARTIALLY_PAID'] },
+        dueDate: { lt: now },
+      },
+      include: {
+        customer: { select: { id: true, gracePeriod: true, username: true } },
+      },
+    });
+
+    let marked = 0;
+    for (const invoice of overdueInvoices) {
+      const graceDays = invoice.customer?.gracePeriod ?? 3;
+      const dueWithGrace = new Date(invoice.dueDate);
+      dueWithGrace.setDate(dueWithGrace.getDate() + graceDays);
+
+      if (now > dueWithGrace) {
+        await prisma.invoice.update({
+          where: { id: invoice.id },
+          data: { status: 'OVERDUE' },
+        });
+        marked++;
+      }
+    }
+
+    logger.info(`ISP Scheduler: Overdue marking finished — ${marked} invoices marked OVERDUE`);
   });
 };
 
 /**
- * Auto-suspend overdue customers: suspends customers with unpaid invoices
- * past their autoSuspendDays threshold.
+ * Monthly auto-billing: generate invoices for customers whose nextBillingDate has passed.
+ * Runs daily at 2 AM.
+ */
+const scheduleMonthlyBilling = (): void => {
+  scheduleDaily(2, async () => {
+    logger.info('ISP Scheduler: Running auto-billing job...');
+
+    const now = new Date();
+    const customers = await prisma.ispCustomer.findMany({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          { nextBillingDate: { lte: now } },
+          { nextBillingDate: null },
+        ],
+      },
+      include: { package: true, reseller: true },
+    });
+
+    let created = 0;
+    for (const customer of customers) {
+      try {
+        const price = customer.customPrice
+          ? Number(customer.customPrice)
+          : Number(customer.package.price);
+
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 15); // 15-day payment term
+
+        await invoiceService.createInvoice(
+          {
+            customerId: customer.id,
+            dueDate,
+            items: [
+              {
+                description: `Internet service - ${customer.package.name}`,
+                packageId: customer.packageId,
+                quantity: 1,
+                unitPrice: price,
+              },
+            ],
+          },
+          'SYSTEM'
+        );
+
+        // Update nextBillingDate
+        const nextDate = new Date(customer.nextBillingDate || now);
+        nextDate.setMonth(nextDate.getMonth() + (customer.billingCycle || 1));
+        await prisma.ispCustomer.update({
+          where: { id: customer.id },
+          data: { nextBillingDate: nextDate },
+        });
+
+        created++;
+      } catch (err) {
+        logger.error(`ISP Scheduler: Failed to generate invoice for ${customer.username}`, err);
+      }
+    }
+
+    logger.info(`ISP Scheduler: Auto-billing created ${created} invoices`);
+  });
+};
+
+/**
+ * Auto-suspend overdue customers past their autoSuspendDays threshold.
  * Runs daily at 3 AM.
  */
 const scheduleAutoSuspend = (): void => {
@@ -53,7 +139,7 @@ const scheduleAutoSuspend = (): void => {
         status: 'ACTIVE',
         invoices: {
           some: {
-            status: { in: ['SENT', 'PARTIALLY_PAID', 'OVERDUE'] },
+            status: 'OVERDUE',
             dueDate: { lt: new Date() },
           },
         },
@@ -67,7 +153,7 @@ const scheduleAutoSuspend = (): void => {
         const oldestOverdue = await prisma.invoice.findFirst({
           where: {
             customerId: customer.id,
-            status: { in: ['SENT', 'PARTIALLY_PAID', 'OVERDUE'] },
+            status: 'OVERDUE',
             dueDate: { lt: new Date() },
           },
           orderBy: { dueDate: 'asc' },
@@ -95,6 +181,7 @@ const scheduleAutoSuspend = (): void => {
 
 const startISPSchedulers = (): void => {
   logger.info('ISP Scheduler: Starting automation jobs...');
+  scheduleOverdueMarking();
   scheduleMonthlyBilling();
   scheduleAutoSuspend();
 };
