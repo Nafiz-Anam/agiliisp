@@ -2,6 +2,14 @@ import { Response } from 'express';
 import httpStatus from 'http-status';
 import { v4 as uuidv4 } from 'uuid';
 
+// JSON replacer function to handle BigInt serialization
+const jsonReplacer = (key: string, value: any): any => {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  return value;
+};
+
 export interface ApiResponseMeta {
   timestamp: string;
   requestId: string;
@@ -165,7 +173,7 @@ export const sendSuccess = <T>(
   pagination?: PaginationMeta
 ): Response => {
   const response = ApiResponseBuilder.success(data, message, requestId, pagination);
-  return res.status(statusCode).json(response);
+  return res.status(statusCode).json(JSON.parse(JSON.stringify(response, jsonReplacer)));
 };
 
 export const sendCreated = <T>(
@@ -175,7 +183,7 @@ export const sendCreated = <T>(
   requestId?: string
 ): Response => {
   const response = ApiResponseBuilder.created(data, message, requestId);
-  return res.status(httpStatus.CREATED).json(response);
+  return res.status(httpStatus.CREATED).json(JSON.parse(JSON.stringify(response, jsonReplacer)));
 };
 
 export const sendUpdated = <T>(
@@ -185,12 +193,12 @@ export const sendUpdated = <T>(
   requestId?: string
 ): Response => {
   const response = ApiResponseBuilder.updated(data, message, requestId);
-  return res.status(httpStatus.OK).json(response);
+  return res.status(httpStatus.OK).json(JSON.parse(JSON.stringify(response, jsonReplacer)));
 };
 
 export const sendDeleted = (res: Response, message?: string, requestId?: string): Response => {
   const response = ApiResponseBuilder.deleted(message, requestId);
-  return res.status(httpStatus.NO_CONTENT).json(response);
+  return res.status(httpStatus.NO_CONTENT).json(JSON.parse(JSON.stringify(response, jsonReplacer)));
 };
 
 export const sendPaginated = <T>(
@@ -201,7 +209,7 @@ export const sendPaginated = <T>(
   requestId?: string
 ): Response => {
   const response = ApiResponseBuilder.paginated(data, pagination, message, requestId);
-  return res.status(httpStatus.OK).json(response);
+  return res.status(httpStatus.OK).json(JSON.parse(JSON.stringify(response, jsonReplacer)));
 };
 
 export const sendError = (
@@ -214,5 +222,5 @@ export const sendError = (
   stack?: string
 ): Response => {
   const response = ApiResponseBuilder.error(code, message, details, requestId, stack);
-  return res.status(statusCode).json(response);
+  return res.status(statusCode).json(JSON.parse(JSON.stringify(response, jsonReplacer)));
 };

@@ -4,14 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
+    Users,
+    Router,
     Package,
-    FolderTree,
-    ShoppingCart,
-    AlertTriangle,
+    Store,
+    FileText,
+    HeadphonesIcon,
     Activity,
     LogOut,
     X,
-    Users,
+    Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
@@ -21,12 +23,13 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 
 const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/categories", label: "Categories", icon: FolderTree },
-    { href: "/products", label: "Products", icon: Package },
-    { href: "/orders", label: "Orders", icon: ShoppingCart },
-    { href: "/restock-queue", label: "Restock Queue", icon: AlertTriangle },
-    { href: "/activity-log", label: "Activity Log", icon: Activity },
-    { href: "/users", label: "Users", icon: Users, adminOnly: true },
+    { href: "/customers", label: "Customers", icon: Users },
+    { href: "/routers", label: "Routers", icon: Router },
+    { href: "/packages", label: "Packages", icon: Package },
+    { href: "/resellers", label: "Resellers", icon: Store, adminOnly: true },
+    { href: "/invoices", label: "Invoices", icon: FileText },
+    { href: "/tickets", label: "Support Tickets", icon: HeadphonesIcon },
+    { href: "/users", label: "Users", icon: Activity, adminOnly: true },
 ] as const;
 
 interface SidebarProps {
@@ -50,10 +53,10 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <div className="flex items-center justify-between h-16 px-5 border-b border-slate-100">
                 <Link href="/dashboard" className="flex items-center gap-2.5">
                     <div className="h-8 w-8 rounded-lg bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-                        <Package className="h-4 w-4 text-white" />
+                        <Wifi className="h-4 w-4 text-white" />
                     </div>
                     <span className="font-bold text-[17px] text-slate-800 tracking-tight">
-                        InvenTrack
+                        Agiloisp
                     </span>
                 </Link>
                 <Button
@@ -67,8 +70,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
 
             <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-                {/* <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">Menu</p> */}
-                {navItems.filter((item) => !("adminOnly" in item && item.adminOnly) || user?.role === "ADMIN").map((item) => {
+                {navItems.filter((item) => !("adminOnly" in item && item.adminOnly) || user?.role === "ADMIN" || user?.role === "SUPER_ADMIN").map((item) => {
                     const isActive =
                         pathname === item.href ||
                         pathname.startsWith(item.href + "/");

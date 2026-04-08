@@ -4,6 +4,7 @@ import prisma from './client';
 import config from './config/config';
 import logger from './config/logger';
 import tokenCleanupService from './services/tokenCleanup.service';
+import ispSchedulerService from './services/ispScheduler.service';
 import { initializeWebSocket } from './controllers/websocket.controller';
 import { initializeTracing } from './utils/tracing';
 
@@ -31,6 +32,9 @@ prisma
 
       // Schedule token cleanup to run every 15 minutes
       tokenCleanupService.scheduleTokenCleanup(15);
+
+      // Start ISP automation schedulers (billing, auto-suspend)
+      ispSchedulerService.startISPSchedulers();
     });
   })
   .catch((error: Error) => {

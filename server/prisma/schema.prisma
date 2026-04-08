@@ -129,8 +129,6 @@ model User {
   readLogs         AppSystemLog[]    @relation("LogReadBy")
   resellerProfile  Reseller?         @relation("UserResellerProfile")
   customerProfile  IspCustomer?      @relation("UserCustomerProfile")
-  reseller         Reseller?
-  ispCustomer      IspCustomer?
 
   @@map("users")
 }
@@ -964,7 +962,6 @@ model Reseller {
   invoices  Invoice[]
   payments  Payment[]
   creator   User?         @relation("ResellerCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  users     User[]
 
   @@map("resellers")
 }
@@ -1022,7 +1019,6 @@ model IspCustomer {
   invoices     Invoice[]
   tickets      SupportTicket[]
   creator      User?           @relation("CustomerCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  users        User[]
   routerLogs   RouterLog[]
   trafficStats TrafficStat[]
 

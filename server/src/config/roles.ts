@@ -94,6 +94,28 @@ const allRoles = {
     'deleteCategory',
     'deleteProduct',
     'deleteOrder',
+    // ISP Management
+    'viewISPDashboard',
+    'manageCustomers',
+    'deleteCustomer',
+    'manageRouters',
+    'deleteRouter',
+    'managePackages',
+    'deletePackage',
+    'manageResellers',
+    'deleteReseller',
+    'manageInvoices',
+    'manageTickets',
+    'viewRouterLogs',
+  ],
+  [Role.RESELLER]: [
+    'viewISPDashboard',
+    'manageCustomers',
+    'manageInvoices',
+    'manageTickets',
+  ],
+  [Role.CUSTOMER]: [
+    'viewISPDashboard',
   ],
 };
 

@@ -87,7 +87,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/v1
+      NEXT_PUBLIC_API_URL: http://localhost:8001/v1
       WATCHPACK_POLLING: "true"
     volumes:
       - ./client/src:/app/src

@@ -53,7 +53,7 @@ class RouterLogService {
         throw new Error(`Failed to fetch logs: ${response.statusText}`);
       }
 
-      const logs: MikrotikLogEntry[] = await response.json();
+      const logs = (await response.json()) as MikrotikLogEntry[];
       const savedLogs: RouterLog[] = [];
 
       for (const logEntry of logs.slice(0, options.limit || 100)) {
@@ -202,10 +202,10 @@ class RouterLogService {
       username,
       startDate,
       endDate,
-      page = 1,
-      limit = 50,
       search,
     } = options;
+    const page = Number(options.page) || 1;
+    const limit = Number(options.limit) || 50;
 
     const where: Prisma.RouterLogWhereInput = {};
 
@@ -364,11 +364,11 @@ class RouterLogService {
     // Calculate stats for each period
     const stats = Array.from(grouped.entries()).map(([key, periodLogs]) => {
       const totalBytesIn = periodLogs.reduce(
-        (sum, log) => sum + (log.bytesIn || 0),
+        (sum, log) => sum + (log.bytesIn ?? BigInt(0)),
         BigInt(0)
       );
       const totalBytesOut = periodLogs.reduce(
-        (sum, log) => sum + (log.bytesOut || 0),
+        (sum, log) => sum + (log.bytesOut ?? BigInt(0)),
         BigInt(0)
       );
 

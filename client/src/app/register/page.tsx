@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Package, UserPlus } from "lucide-react";
+import { Wifi, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,11 +53,11 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="h-12 w-12 rounded-lg bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-              <Package className="h-6 w-6 text-white" />
+              <Wifi className="h-6 w-6 text-white" />
             </div>
           </div>
           <h2 className="text-2xl font-bold text-slate-800">Create your account</h2>
-          <p className="text-slate-500 text-[15px] mt-1">Get started with InvenTrack</p>
+          <p className="text-slate-500 text-[15px] mt-1">Get started with Agiloisp</p>
         </div>
 
         <div className="bg-white rounded-lg border border-slate-200 p-8">

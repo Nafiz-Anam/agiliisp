@@ -34,7 +34,7 @@ const createReseller = async (
   }
 
   // Check if business name already exists
-  const existingBusiness = await prisma.reseller.findUnique({
+  const existingBusiness = await prisma.reseller.findFirst({
     where: { businessName: resellerBody.businessName },
   });
 
@@ -83,7 +83,9 @@ const getResellers = async (options: {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }) => {
-  const { page = 1, limit = 10, search, isActive, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+  const { search, isActive, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+  const page = Number(options.page) || 1;
+  const limit = Number(options.limit) || 10;
 
   const where: Prisma.ResellerWhereInput = {};
 
@@ -212,7 +214,7 @@ const updateResellerById = async (
 
   // Check for duplicate business name if being updated
   if (updateBody.businessName && updateBody.businessName !== reseller.businessName) {
-    const existingBusiness = await prisma.reseller.findUnique({
+    const existingBusiness = await prisma.reseller.findFirst({
       where: { businessName: updateBody.businessName as string },
     });
 

@@ -14,8 +14,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "InvenTrack - Smart Inventory & Order Management",
-  description: "Manage products, stock levels, customer orders, and fulfillment workflows",
+  title: "Agiloisp - ISP CRM & Management Platform",
+  description: "Manage ISP customers, routers, internet packages, billing, support tickets, and resellers from one platform",
 };
 
 export default function RootLayout({

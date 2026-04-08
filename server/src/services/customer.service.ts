@@ -51,8 +51,6 @@ const getCustomers = async (options: {
   sortOrder?: 'asc' | 'desc';
 }) => {
   const {
-    page = 1,
-    limit = 10,
     search,
     status,
     routerId,
@@ -62,6 +60,8 @@ const getCustomers = async (options: {
     sortBy = 'createdAt',
     sortOrder = 'desc',
   } = options;
+  const page = Number(options.page) || 1;
+  const limit = Number(options.limit) || 10;
 
   const where: Prisma.IspCustomerWhereInput = {};
 
@@ -151,7 +151,7 @@ const getCustomers = async (options: {
 /**
  * Get customer by ID
  */
-const getCustomerById = async (id: string): Promise<IspCustomer | null> => {
+const getCustomerById = async (id: string) => {
   return prisma.ispCustomer.findUnique({
     where: { id },
     include: {
@@ -193,7 +193,7 @@ const getCustomerById = async (id: string): Promise<IspCustomer | null> => {
       },
       tickets: {
         take: 5,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { openedAt: 'desc' },
         select: {
           id: true,
           ticketNumber: true,

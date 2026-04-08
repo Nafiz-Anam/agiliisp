@@ -61,7 +61,7 @@ const getAdminDashboard = async () => {
 
   const pendingInvoices =
     invoiceCounts.find((s) =>
-      [InvoiceStatus.DRAFT, InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID].includes(s.status)
+      ([InvoiceStatus.DRAFT, InvoiceStatus.SENT, InvoiceStatus.PARTIALLY_PAID] as InvoiceStatus[]).includes(s.status)
     )?._count.id || 0;
 
   const overdueInvoices =
@@ -343,7 +343,7 @@ const getCustomerDashboard = async (customerId: string) => {
   const tickets = await prisma.supportTicket.findMany({
     where: { customerId },
     take: 5,
-    orderBy: { createdAt: 'desc' },
+    orderBy: { openedAt: 'desc' },
     select: {
       id: true,
       ticketNumber: true,

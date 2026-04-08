@@ -19,6 +19,14 @@ import orderRoute from './order.route';
 import restockRoute from './restock.route';
 import dashboardRoute from './dashboard.route';
 import inventoryActivityRoute from './inventoryActivity.route';
+import ispDashboardRoute from './isp/dashboard.route';
+import ispCustomerRoute from './isp/customer.route';
+import ispRouterRoute from './isp/router.route';
+import ispPackageRoute from './isp/package.route';
+import ispResellerRoute from './isp/reseller.route';
+import ispInvoiceRoute from './isp/invoice.route';
+import ispTicketRoute from './isp/ticket.route';
+import ispRouterLogRoute from './isp/routerLog.route';
 import config from '../../config/config';
 
 const router = express.Router();
@@ -99,6 +107,38 @@ const defaultRoutes = [
   {
     path: '/activity-log',
     route: inventoryActivityRoute,
+  },
+  {
+    path: '/isp/dashboard',
+    route: ispDashboardRoute,
+  },
+  {
+    path: '/isp/customers',
+    route: ispCustomerRoute,
+  },
+  {
+    path: '/isp/routers',
+    route: ispRouterRoute,
+  },
+  {
+    path: '/isp/packages',
+    route: ispPackageRoute,
+  },
+  {
+    path: '/isp/resellers',
+    route: ispResellerRoute,
+  },
+  {
+    path: '/isp/invoices',
+    route: ispInvoiceRoute,
+  },
+  {
+    path: '/isp/tickets',
+    route: ispTicketRoute,
+  },
+  {
+    path: '/isp/router-logs',
+    route: ispRouterLogRoute,
   },
 ];
 

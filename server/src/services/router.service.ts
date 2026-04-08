@@ -36,7 +36,9 @@ const getRouters = async (options: {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }) => {
-  const { page = 1, limit = 10, search, status, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+  const { search, status, sortBy = 'createdAt', sortOrder = 'desc' } = options;
+  const page = Number(options.page) || 1;
+  const limit = Number(options.limit) || 10;
 
   const where: Prisma.RouterWhereInput = {};
 

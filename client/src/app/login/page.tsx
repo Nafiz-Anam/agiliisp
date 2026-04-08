@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Package, LogIn, Shield, User } from "lucide-react";
+import { Wifi, LogIn, Shield, User, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,13 +42,16 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = (role: "user" | "admin") => {
+  const handleDemoLogin = (role: "admin" | "reseller" | "customer") => {
     if (role === "admin") {
       setValue("email", "admin@example.com");
       setValue("password", "Admin@1234");
+    } else if (role === "reseller") {
+      setValue("email", "reseller1@agiloisp.com");
+      setValue("password", "Reseller@1234");
     } else {
-      setValue("email", "demo@example.com");
-      setValue("password", "Demo@1234");
+      setValue("email", "john.doe@example.com");
+      setValue("password", "Customer@1234");
     }
     handleSubmit(onSubmit)();
   };
@@ -61,22 +64,22 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
           <div className="flex items-center gap-3 mb-8">
             <div className="h-12 w-12 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Package className="h-6 w-6" />
+              <Wifi className="h-6 w-6" />
             </div>
-            <span className="text-2xl font-bold tracking-tight">InvenTrack</span>
+            <span className="text-2xl font-bold tracking-tight">Agiloisp</span>
           </div>
           <h1 className="text-4xl font-bold leading-tight mb-4">
-            Smart Inventory &<br />Order Management
+            Complete ISP<br />Management Platform
           </h1>
           <p className="text-lg text-slate-400 max-w-md leading-relaxed">
-            Streamline your warehouse operations with real-time stock tracking,
-            automated restock alerts, and powerful order management.
+            Manage your entire ISP business — customers, routers, billing,
+            support tickets, and resellers from one powerful platform.
           </p>
           <div className="mt-12 grid grid-cols-3 gap-6">
             {[
-              { label: "Products", value: "15+" },
-              { label: "Real-time", value: "Stock" },
-              { label: "Analytics", value: "Live" },
+              { label: "Customers", value: "100+" },
+              { label: "Uptime", value: "99.9%" },
+              { label: "Monitoring", value: "Live" },
             ].map((stat) => (
               <div key={stat.label} className="bg-white/5 border border-white/10 rounded-lg p-4">
                 <p className="text-2xl font-bold text-orange-400">{stat.value}</p>
@@ -92,9 +95,9 @@ export default function LoginPage() {
         <div className="w-full max-w-[400px]">
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
             <div className="h-10 w-10 rounded-lg bg-linear-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-              <Package className="h-5 w-5 text-white" />
+              <Wifi className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-xl text-slate-800">InvenTrack</span>
+            <span className="font-bold text-xl text-slate-800">Agiloisp</span>
           </div>
 
           <h2 className="text-2xl font-bold text-slate-800 mb-1">Welcome back</h2>
@@ -133,18 +136,24 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <Button variant="outline"
-              className="h-11 border-dashed border-slate-300 hover:border-orange-300 hover:bg-orange-50/50 text-slate-600 text-[14px] font-medium transition-all rounded-lg"
-              onClick={() => handleDemoLogin("user")} disabled={loading}>
-              <User className="h-4 w-4 mr-1.5 text-slate-400" />
-              Demo User
+              className="border-dashed border-slate-300 hover:border-amber-300 hover:bg-amber-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
+              onClick={() => handleDemoLogin("admin")} disabled={loading}>
+              <Shield className="h-4 w-4 text-amber-500" />
+              <span>Admin</span>
             </Button>
             <Button variant="outline"
-              className="h-11 border-dashed border-slate-300 hover:border-amber-300 hover:bg-amber-50/50 text-slate-600 text-[14px] font-medium transition-all rounded-lg"
-              onClick={() => handleDemoLogin("admin")} disabled={loading}>
-              <Shield className="h-4 w-4 mr-1.5 text-amber-500" />
-              Demo Admin
+              className="border-dashed border-slate-300 hover:border-blue-300 hover:bg-blue-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
+              onClick={() => handleDemoLogin("reseller")} disabled={loading}>
+              <Building2 className="h-4 w-4 text-blue-500" />
+              <span>Reseller</span>
+            </Button>
+            <Button variant="outline"
+              className="border-dashed border-slate-300 hover:border-green-300 hover:bg-green-50/50 text-slate-600 text-[13px] font-medium transition-all rounded-lg flex flex-col gap-0.5 py-2 h-auto"
+              onClick={() => handleDemoLogin("customer")} disabled={loading}>
+              <User className="h-4 w-4 text-green-500" />
+              <span>Customer</span>
             </Button>
           </div>
 
