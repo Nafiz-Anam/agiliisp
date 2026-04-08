@@ -1,0 +1,1435 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum IPSecurityRuleType {
+  WHITELIST
+  BLACKLIST
+  SUSPICIOUS
+}
+
+model IPSecurityRule {
+  id        String             @id @default(cuid())
+  ipAddress String             @map("ip_address")
+  cidrRange String?            @map("cidr_range")
+  ruleType  IPSecurityRuleType @map("rule_type")
+  reason    String?
+  isActive  Boolean            @default(true) @map("is_active")
+  createdBy String?            @map("created_by")
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+  updatedBy String?            @map("updated_by")
+  userId    String?            @map("user_id")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("ip_security_rules")
+}
+
+model IPSecurityAnalytics {
+  id           String   @id @default(cuid())
+  ipAddress    String   @map("ip_address")
+  countryCode  String?  @map("country_code")
+  reputation   String?
+  requestCount Int      @default(0) @map("request_count")
+  firstSeen    DateTime @default(now()) @map("first_seen")
+  lastSeen     DateTime @default(now()) @map("last_seen")
+  isBlocked    Boolean  @default(false) @map("is_blocked")
+  blockReason  String?  @map("block_reason")
+  riskScore    Float    @default(0.0) @map("risk_score")
+
+  @@map("ip_security_analytics")
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  name                 String?
+  password             String
+  role                 Role
+  isEmailVerified      Boolean   @default(false)
+  failedLoginAttempts  Int       @default(0)
+  lockoutUntil         DateTime?
+  lastLoginAt          DateTime?
+  twoFactorEnabled     Boolean   @default(false)
+  twoFactorSecret      String?
+  twoFactorBackupCodes String[]
+  twoFactorVerified    Boolean   @default(false)
+
+  // Profile fields
+  phone          String?
+  phoneCode      String?
+  country        String?
+  state          String?
+  city           String?
+  address        String?
+  profilePicture String?
+  dateOfBirth    DateTime?
+  gender         Gender?
+
+  // Security fields
+  forcePasswordChange Boolean   @default(false)
+  passwordChangedAt   DateTime?
+  isActive            Boolean   @default(true)
+  isLocked            Boolean   @default(false)
+
+  // Preferences
+  emailNotifications Json? @default("{}")
+  pushNotifications  Json? @default("{}")
+  preferences        Json? @default("{}")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tokens          Token[]
+  securityLogs    SecurityLog[]
+  userActivities  UserActivity[]
+  userSessions    UserSession[]
+  devices         Device[]
+  notifications   Notification[]
+  passwordHistory PasswordHistory[]
+  otps            Otp[]
+  ipSecurityRules IPSecurityRule[]
+
+  // Phase 1 Core Features Relations
+  socialAccounts        SocialAccount[]
+  userRoles             UserRole[]
+  auditLogs             AuditLog[]
+  dataProcessingRecords DataProcessingRecord[]
+  apiKeys               ApiKey[]
+
+  // Inventory & Order Relations
+  createdCategories   Category[]          @relation("CategoryCreator")
+  createdProducts     Product[]           @relation("ProductCreator")
+  createdOrders       Order[]             @relation("OrderCreator")
+  restockedItems      RestockQueue[]      @relation("RestockedBy")
+  inventoryActivities InventoryActivity[] @relation("ActivityLogUser")
+
+  // ISP CRM Relations
+  routers          Router[]
+  internetPackages InternetPackage[]
+  createdResellers Reseller[]        @relation("ResellerCreator")
+  createdCustomers IspCustomer[]     @relation("CustomerCreator")
+  invoices         Invoice[]
+  payments         Payment[]
+  assignedTickets  SupportTicket[]   @relation("TicketAssignee")
+  ticketReplies    TicketReply[]
+  syncLogs         SyncLog[]
+  appSystemLogs    AppSystemLog[]
+  readLogs         AppSystemLog[]    @relation("LogReadBy")
+  resellerProfile  Reseller?         @relation("UserResellerProfile")
+  customerProfile  IspCustomer?      @relation("UserCustomerProfile")
+  reseller         Reseller?
+  ispCustomer      IspCustomer?
+
+  @@map("users")
+}
+
+model Token {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  type        TokenType
+  expires     DateTime
+  blacklisted Boolean   @default(false)
+
+  // Device management fields
+  deviceId   String? // Unique identifier for the device/session
+  deviceName String? // Human-readable device name
+  ipAddress  String? // IP address of the device
+  userAgent  String? // User agent string
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@map("tokens")
+}
+
+model SecurityLog {
+  id        String            @id @default(cuid())
+  userId    String?
+  email     String?
+  ipAddress String
+  userAgent String
+  eventType SecurityEventType
+  details   Json?
+  success   Boolean
+  timestamp DateTime          @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("security_logs")
+}
+
+model UserActivity {
+  id           String       @id @default(cuid())
+  userId       String
+  activityType ActivityType
+  description  String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  timestamp    DateTime     @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_activities")
+}
+
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String
+  sessionId    String   @unique
+  deviceId     String?
+  deviceName   String?
+  ipAddress    String?
+  userAgent    String?
+  isActive     Boolean  @default(true)
+  lastActivity DateTime @default(now())
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+model Device {
+  id         String     @id @default(cuid())
+  userId     String
+  deviceId   String     @unique
+  deviceName String
+  deviceType DeviceType
+  ipAddress  String?
+  userAgent  String?
+  isTrusted  Boolean    @default(false)
+  lastUsed   DateTime   @default(now())
+  createdAt  DateTime   @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("devices")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model PasswordHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  password  String
+  changedAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_history")
+}
+
+model Otp {
+  id        String   @id @default(cuid())
+  userId    String
+  otp       String
+  type      OtpType
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+  SUPER_ADMIN
+  RESELLER
+  CUSTOMER
+}
+
+enum TokenType {
+  ACCESS
+  REFRESH
+  RESET_PASSWORD
+  VERIFY_EMAIL
+  TWO_FACTOR
+}
+
+enum SecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  REGISTER
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  PASSWORD_CHANGE
+  EMAIL_VERIFIED
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+  TWO_FACTOR_ENABLED
+  TWO_FACTOR_DISABLED
+  TWO_FACTOR_VERIFIED
+  SUSPICIOUS_ACTIVITY
+  RATE_LIMIT_EXCEEDED
+  DEVICE_ADDED
+  DEVICE_REMOVED
+  SESSION_CREATED
+  SESSION_TERMINATED
+}
+
+enum ActivityType {
+  LOGIN
+  LOGOUT
+  PASSWORD_CHANGE
+  PROFILE_UPDATE
+  EMAIL_VERIFICATION
+  TWO_FACTOR_SETUP
+  DEVICE_ADDED
+  DEVICE_REMOVED
+  SESSION_CREATED
+  SESSION_TERMINATED
+  ACCOUNT_LOCKED
+  ACCOUNT_UNLOCKED
+}
+
+enum NotificationType {
+  LOGIN_ALERT
+  PASSWORD_CHANGE
+  EMAIL_VERIFICATION
+  TWO_FACTOR_SETUP
+  ACCOUNT_LOCKED
+  SECURITY_ALERT
+  SYSTEM_UPDATE
+  WELCOME
+}
+
+enum DeviceType {
+  MOBILE
+  TABLET
+  DESKTOP
+  UNKNOWN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum OtpType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+// Phase 1 Core Features Enums
+enum Permission {
+  // User Management
+  USER_READ
+  USER_CREATE
+  USER_UPDATE
+  USER_DELETE
+  // Role Management  
+  ROLE_READ
+  ROLE_CREATE
+  ROLE_UPDATE
+  ROLE_DELETE
+  // System Management
+  SYSTEM_READ
+  SYSTEM_UPDATE
+  SYSTEM_CONFIGURE
+  // Analytics
+  ANALYTICS_READ
+  ANALYTICS_EXPORT
+  // Security
+  SECURITY_READ
+  SECURITY_MANAGE
+  // Social Auth
+  SOCIAL_AUTH_READ
+  SOCIAL_AUTH_MANAGE
+  // Audit Logs
+  AUDIT_READ
+  AUDIT_EXPORT
+  // Session Management
+  SESSION_READ
+  SESSION_MANAGE
+  // Inventory & Orders
+  CATEGORY_READ
+  CATEGORY_CREATE
+  CATEGORY_UPDATE
+  CATEGORY_DELETE
+  PRODUCT_READ
+  PRODUCT_CREATE
+  PRODUCT_UPDATE
+  PRODUCT_DELETE
+  ORDER_READ
+  ORDER_CREATE
+  ORDER_UPDATE
+  ORDER_CANCEL
+  RESTOCK_READ
+  RESTOCK_MANAGE
+  DASHBOARD_READ
+  ACTIVITY_LOG_READ
+  // ISP Management
+  ROUTER_READ
+  ROUTER_CREATE
+  ROUTER_UPDATE
+  ROUTER_DELETE
+  ROUTER_SYNC
+  PACKAGE_READ
+  PACKAGE_CREATE
+  PACKAGE_UPDATE
+  PACKAGE_DELETE
+  PACKAGE_SYNC
+  CUSTOMER_READ
+  CUSTOMER_CREATE
+  CUSTOMER_UPDATE
+  CUSTOMER_DELETE
+  CUSTOMER_SUSPEND
+  CUSTOMER_ACTIVATE
+  RESELLER_READ
+  RESELLER_CREATE
+  RESELLER_UPDATE
+  RESELLER_DELETE
+  INVOICE_READ
+  INVOICE_CREATE
+  INVOICE_UPDATE
+  INVOICE_DELETE
+  PAYMENT_READ
+  PAYMENT_CREATE
+  PAYMENT_UPDATE
+  TICKET_READ
+  TICKET_CREATE
+  TICKET_UPDATE
+  TICKET_DELETE
+  TICKET_ASSIGN
+  ISP_ADMIN_DASHBOARD
+  RESELLER_DASHBOARD
+  CUSTOMER_DASHBOARD
+  SYNC_LOGS_READ
+  SYSTEM_SETTINGS_READ
+  SYSTEM_SETTINGS_UPDATE
+}
+
+// Phase 1 Core Features Models
+
+// Social Authentication Models
+model SocialAccount {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  provider     String // 'google', 'github', 'facebook', etc.
+  providerId   String   @map("provider_id") // Unique ID from provider
+  accessToken  String?  @map("access_token")
+  refreshToken String?  @map("refresh_token")
+  scope        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@map("social_accounts")
+}
+
+// RBAC Models
+model RoleModel {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  permissions RolePermission[]
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model PermissionModel {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  resource    String // 'user', 'role', 'system', etc.
+  action      String // 'read', 'create', 'update', 'delete'
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String   @map("role_id")
+  permissionId String   @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  role       RoleModel       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission PermissionModel @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  roleId     String    @map("role_id")
+  assignedBy String?   @map("assigned_by")
+  assignedAt DateTime  @default(now()) @map("assigned_at")
+  expiresAt  DateTime? @map("expires_at")
+
+  // Relations
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role RoleModel @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// Password Management Models
+model PasswordPolicy {
+  id                     String   @id @default(cuid())
+  name                   String   @unique
+  minLength              Int      @default(8) @map("min_length")
+  requireUppercase       Boolean  @default(true) @map("require_uppercase")
+  requireLowercase       Boolean  @default(true) @map("require_lowercase")
+  requireNumbers         Boolean  @default(true) @map("require_numbers")
+  requireSpecialChars    Boolean  @default(true) @map("require_special_chars")
+  preventCommonPasswords Boolean  @default(true) @map("prevent_common_passwords")
+  preventUserInfo        Boolean  @default(true) @map("prevent_user_info")
+  maxAge                 Int?     @map("max_age") // Days
+  historyCount           Int      @default(5) @map("history_count")
+  breachCheckEnabled     Boolean  @default(true) @map("breach_check_enabled")
+  isActive               Boolean  @default(true) @map("is_active")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("password_policies")
+}
+
+model PasswordBreachCheck {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  passwordHash String   @map("password_hash")
+  isBreached   Boolean  @map("is_breached")
+  checkedAt    DateTime @default(now()) @map("checked_at")
+
+  @@map("password_breach_checks")
+}
+
+// Audit Logging Models
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  action     String // 'CREATE', 'UPDATE', 'DELETE', 'LOGIN', etc.
+  resource   String // 'user', 'role', 'permission', etc.
+  resourceId String?  @map("resource_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  sessionId  String?  @map("session_id")
+  requestId  String?  @map("request_id")
+  timestamp  DateTime @default(now())
+  severity   String   @default("INFO") // 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+  category   String   @default("GENERAL") // 'SECURITY', 'AUTH', 'DATA', 'SYSTEM'
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([timestamp])
+  @@index([severity])
+  @@index([category])
+  @@map("audit_logs")
+}
+
+model DataProcessingRecord {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  purpose    String
+  legalBasis String   @map("legal_basis")
+  dataTypes  Json     @map("data_types") // Array of data types processed
+  retention  String // How long data will be retained
+  createdAt  DateTime @default(now()) @map("created_at")
+  expiresAt  DateTime @map("expires_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("data_processing_records")
+}
+
+// API Key Management
+model ApiKey {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  name             String
+  description      String?
+  hashedKey        String    @map("hashed_key")
+  permissions      Json // Array of permissions
+  expiresAt        DateTime? @map("expires_at")
+  rateLimitPerHour Int       @default(1000) @map("rate_limit_per_hour")
+  allowedIPs       Json      @default("[]") @map("allowed_ips") // Array of allowed IPs
+  allowedOrigins   Json      @default("[]") @map("allowed_origins") // Array of allowed origins
+  isActive         Boolean   @default(true) @map("is_active")
+  lastUsedAt       DateTime? @map("last_used_at")
+  usageCount       Int       @default(0) @map("usage_count")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@map("api_keys")
+}
+
+// Enhanced Session Management Models
+model SessionSecurityEvent {
+  id         String    @id @default(cuid())
+  sessionId  String    @map("session_id")
+  eventType  String    @map("event_type") // 'SUSPICIOUS_IP', 'MULTIPLE_DEVICES', etc.
+  riskScore  Float     @default(0.0) @map("risk_score")
+  details    Json?
+  timestamp  DateTime  @default(now())
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime? @map("resolved_at")
+  resolvedBy String?   @map("resolved_by")
+
+  @@map("session_security_events")
+}
+
+// =============================================
+// Inventory & Order Management
+// =============================================
+
+enum ProductStatus {
+  ACTIVE
+  OUT_OF_STOCK
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum RestockPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RestockStatus {
+  PENDING
+  COMPLETED
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+  creator  User?     @relation("CategoryCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@map("categories")
+}
+
+model Product {
+  id                String        @id @default(cuid())
+  name              String
+  sku               String        @unique
+  categoryId        String        @map("category_id")
+  price             Decimal       @db.Decimal(10, 2)
+  stock             Int           @default(0)
+  minStockThreshold Int           @default(5) @map("min_stock_threshold")
+  status            ProductStatus @default(ACTIVE)
+  description       String?
+  createdBy         String?       @map("created_by")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  category       Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  orderItems     OrderItem[]
+  restockEntries RestockQueue[]
+  creator        User?          @relation("ProductCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([stock])
+  @@map("products")
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique @map("order_number")
+  customerName String      @map("customer_name")
+  totalAmount  Decimal     @default(0) @map("total_amount") @db.Decimal(12, 2)
+  status       OrderStatus @default(PENDING)
+  notes        String?
+  createdBy    String?     @map("created_by")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  items   OrderItem[]
+  creator User?       @relation("OrderCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([customerName])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String  @map("order_id")
+  productId  String  @map("product_id")
+  quantity   Int
+  unitPrice  Decimal @map("unit_price") @db.Decimal(10, 2)
+  totalPrice Decimal @map("total_price") @db.Decimal(12, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, productId])
+  @@map("order_items")
+}
+
+model RestockQueue {
+  id              String          @id @default(cuid())
+  productId       String          @map("product_id")
+  currentStock    Int             @map("current_stock")
+  threshold       Int
+  priority        RestockPriority @default(MEDIUM)
+  status          RestockStatus   @default(PENDING)
+  restockedBy     String?         @map("restocked_by")
+  restockedAt     DateTime?       @map("restocked_at")
+  restockQuantity Int?            @map("restock_quantity")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  restockedByUser User?   @relation("RestockedBy", fields: [restockedBy], references: [id], onDelete: SetNull)
+
+  @@index([priority])
+  @@index([status])
+  @@index([productId])
+  @@map("restock_queue")
+}
+
+model InventoryActivity {
+  id          String   @id @default(cuid())
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  description String
+  metadata    Json?
+  userId      String?  @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User? @relation("ActivityLogUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entityType])
+  @@map("inventory_activities")
+}
+
+// =============================================
+// ISP CRM System Models
+// =============================================
+
+enum ConnectionType {
+  PPPOE
+  STATIC_IP
+  DHCP
+  HOTSPOT
+}
+
+enum CustomerStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+  PENDING_ACTIVATION
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CREDIT_CARD
+  DEBIT_CARD
+  CHECK
+  ONLINE_PAYMENT
+  AGENT_COLLECTED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RouterStatus {
+  ONLINE
+  OFFLINE
+  WARNING
+  MAINTENANCE
+}
+
+enum SyncDirection {
+  MIKROTIK_TO_CRM
+  CRM_TO_MIKROTIK
+  BIDIRECTIONAL
+}
+
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILED
+}
+
+// Router Management
+model Router {
+  id              String       @id @default(cuid())
+  name            String       @unique
+  host            String
+  port            Int          @default(8728)
+  useSSL          Boolean      @default(false) @map("use_ssl")
+  username        String
+  password        String
+  apiVersion      String?      @map("api_version")
+  status          RouterStatus @default(OFFLINE)
+  lastConnectedAt DateTime?    @map("last_connected_at")
+  lastSyncAt      DateTime?    @map("last_sync_at")
+  syncEnabled     Boolean      @default(true) @map("sync_enabled")
+  location        String?
+  description     String?
+  isActive        Boolean      @default(true) @map("is_active")
+  createdBy       String?      @map("created_by")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  packages     InternetPackage[]
+  customers    IspCustomer[]
+  syncLogs     SyncLog[]
+  creator      User?             @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  routerLogs   RouterLog[]
+  trafficStats TrafficStat[]
+
+  @@map("routers")
+}
+
+// Internet Packages/Bandwidth Plans
+model InternetPackage {
+  id            String    @id @default(cuid())
+  name          String
+  mikrotikId    String?   @map("mikrotik_id")
+  routerId      String    @map("router_id")
+  downloadSpeed Int       @map("download_speed")
+  uploadSpeed   Int       @map("upload_speed")
+  dataLimit     Int?      @map("data_limit")
+  burstDownload Int?      @map("burst_download")
+  burstUpload   Int?      @map("burst_upload")
+  threshold     Int?      @map("threshold")
+  burstTime     Int?      @map("burst_time")
+  priority      Int       @default(8)
+  price         Decimal   @db.Decimal(10, 2)
+  costPrice     Decimal?  @map("cost_price") @db.Decimal(10, 2)
+  description   String?
+  isActive      Boolean   @default(true) @map("is_active")
+  isPublic      Boolean   @default(true) @map("is_public")
+  syncEnabled   Boolean   @default(true) @map("sync_enabled")
+  lastSyncAt    DateTime? @map("last_sync_at")
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  router       Router        @relation(fields: [routerId], references: [id], onDelete: Restrict)
+  customers    IspCustomer[]
+  invoiceItems InvoiceItem[]
+  creator      User?         @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@unique([routerId, name])
+  @@index([routerId])
+  @@index([isActive])
+  @@map("internet_packages")
+}
+
+// Reseller Management
+model Reseller {
+  id                   String   @id @default(cuid())
+  userId               String   @unique @map("user_id")
+  businessName         String   @map("business_name")
+  businessRegistration String?  @map("business_registration")
+  taxId                String?  @map("tax_id")
+  commissionRate       Decimal  @default(10.00) @map("commission_rate") @db.Decimal(5, 2)
+  creditLimit          Decimal? @map("credit_limit") @db.Decimal(12, 2)
+  currentBalance       Decimal  @default(0) @map("current_balance") @db.Decimal(12, 2)
+  markupPercentage     Decimal  @default(0) @map("markup_percentage") @db.Decimal(5, 2)
+  canCreatePackages    Boolean  @default(false) @map("can_create_packages")
+  canCreateCustomers   Boolean  @default(true) @map("can_create_customers")
+  whiteLabelEnabled    Boolean  @default(false) @map("white_label_enabled")
+  companyLogo          String?  @map("company_logo")
+  primaryColor         String?  @map("primary_color")
+  supportPhone         String?  @map("support_phone")
+  supportEmail         String?  @map("support_email")
+  notes                String?
+  isActive             Boolean  @default(true) @map("is_active")
+  createdBy            String?  @map("created_by")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user      User          @relation("UserResellerProfile", fields: [userId], references: [id], onDelete: Cascade)
+  customers IspCustomer[]
+  invoices  Invoice[]
+  payments  Payment[]
+  creator   User?         @relation("ResellerCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  users     User[]
+
+  @@map("resellers")
+}
+
+// ISP Customers
+model IspCustomer {
+  id               String         @id @default(cuid())
+  userId           String?        @unique @map("user_id")
+  mikrotikId       String?        @map("mikrotik_id")
+  resellerId       String?        @map("reseller_id")
+  routerId         String         @map("router_id")
+  packageId        String         @map("package_id")
+  username         String         @unique
+  password         String?
+  connectionType   ConnectionType @default(PPPOE) @map("connection_type")
+  ipAddress        String?        @map("ip_address")
+  macAddress       String?        @map("mac_address")
+  serviceName      String?        @map("service_name")
+  fullName         String         @map("full_name")
+  email            String?
+  phone            String?
+  phoneSecondary   String?        @map("phone_secondary")
+  address          String?
+  city             String?
+  state            String?
+  zipCode          String?        @map("zip_code")
+  country          String?
+  gpsCoordinates   String?        @map("gps_coordinates")
+  billingAddress   String?        @map("billing_address")
+  billingCycle     Int            @default(1) @map("billing_cycle")
+  nextBillingDate  DateTime?      @map("next_billing_date")
+  gracePeriod      Int            @default(3) @map("grace_period")
+  autoSuspend      Boolean        @default(true) @map("auto_suspend")
+  autoSuspendDays  Int            @default(7) @map("auto_suspend_days")
+  customPrice      Decimal?       @map("custom_price") @db.Decimal(10, 2)
+  status           CustomerStatus @default(PENDING_ACTIVATION)
+  isOnline         Boolean        @default(false) @map("is_online")
+  lastOnlineAt     DateTime?      @map("last_online_at")
+  installationDate DateTime?      @map("installation_date")
+  terminationDate  DateTime?      @map("termination_date")
+  suspensionReason String?        @map("suspension_reason")
+  dataUsed         BigInt         @default(0) @map("data_used")
+  dataLimit        BigInt?        @map("data_limit")
+  lastSyncAt       DateTime?      @map("last_sync_at")
+  notes            String?
+  isActive         Boolean        @default(true) @map("is_active")
+  createdBy        String?        @map("created_by")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  user         User?           @relation("UserCustomerProfile", fields: [userId], references: [id], onDelete: SetNull)
+  reseller     Reseller?       @relation(fields: [resellerId], references: [id], onDelete: SetNull)
+  router       Router          @relation(fields: [routerId], references: [id], onDelete: Restrict)
+  package      InternetPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  invoices     Invoice[]
+  tickets      SupportTicket[]
+  creator      User?           @relation("CustomerCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  users        User[]
+  routerLogs   RouterLog[]
+  trafficStats TrafficStat[]
+
+  @@index([resellerId])
+  @@index([routerId])
+  @@index([packageId])
+  @@index([status])
+  @@index([isActive])
+  @@map("isp_customers")
+}
+
+// Invoicing
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique @map("invoice_number")
+  customerId      String        @map("customer_id")
+  resellerId      String?       @map("reseller_id")
+  subtotal        Decimal       @db.Decimal(12, 2)
+  taxAmount       Decimal       @default(0) @map("tax_amount") @db.Decimal(12, 2)
+  discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(12, 2)
+  paidAmount      Decimal       @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  balanceDue      Decimal       @map("balance_due") @db.Decimal(12, 2)
+  invoiceDate     DateTime      @default(now()) @map("invoice_date")
+  dueDate         DateTime      @map("due_date")
+  paidDate        DateTime?     @map("paid_date")
+  sentDate        DateTime?     @map("sent_date")
+  status          InvoiceStatus @default(DRAFT)
+  isRecurring     Boolean       @default(false) @map("is_recurring")
+  recurringPeriod String?       @map("recurring_period")
+  notes           String?
+  terms           String?
+  footer          String?
+  createdBy       String?       @map("created_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  customer IspCustomer   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  reseller Reseller?     @relation(fields: [resellerId], references: [id], onDelete: SetNull)
+  items    InvoiceItem[]
+  payments Payment[]
+  creator  User?         @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([resellerId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String    @id @default(cuid())
+  invoiceId   String    @map("invoice_id")
+  description String
+  packageId   String?   @map("package_id")
+  quantity    Int       @default(1)
+  unitPrice   Decimal   @map("unit_price") @db.Decimal(10, 2)
+  totalPrice  Decimal   @map("total_price") @db.Decimal(12, 2)
+  periodStart DateTime? @map("period_start")
+  periodEnd   DateTime? @map("period_end")
+
+  invoice Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  package InternetPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+// Payments
+model Payment {
+  id              String        @id @default(cuid())
+  invoiceId       String?       @map("invoice_id")
+  customerId      String        @map("customer_id")
+  resellerId      String?       @map("reseller_id")
+  amount          Decimal       @db.Decimal(12, 2)
+  paymentMethod   PaymentMethod @map("payment_method")
+  paymentDate     DateTime      @default(now()) @map("payment_date")
+  status          PaymentStatus @default(PENDING)
+  referenceNumber String?       @map("reference_number")
+  notes           String?
+  gatewayResponse Json?         @map("gateway_response")
+  receiptUrl      String?       @map("receipt_url")
+  verifiedBy      String?       @map("verified_by")
+  verifiedAt      DateTime?     @map("verified_at")
+  createdBy       String?       @map("created_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  invoice  Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  reseller Reseller? @relation(fields: [resellerId], references: [id], onDelete: SetNull)
+  creator  User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([invoiceId])
+  @@index([resellerId])
+  @@index([status])
+  @@map("payments")
+}
+
+// Support Tickets
+model SupportTicket {
+  id           String         @id @default(cuid())
+  ticketNumber String         @unique @map("ticket_number")
+  customerId   String         @map("customer_id")
+  resellerId   String?        @map("reseller_id")
+  assignedTo   String?        @map("assigned_to")
+  subject      String
+  description  String
+  category     String
+  priority     TicketPriority @default(MEDIUM)
+  status       TicketStatus   @default(OPEN)
+  openedAt     DateTime       @default(now()) @map("opened_at")
+  resolvedAt   DateTime?      @map("resolved_at")
+  closedAt     DateTime?      @map("closed_at")
+
+  customer     IspCustomer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedUser User?         @relation("TicketAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+  replies      TicketReply[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@map("support_tickets")
+}
+
+model TicketReply {
+  id          String   @id @default(cuid())
+  ticketId    String   @map("ticket_id")
+  userId      String   @map("user_id")
+  message     String
+  isInternal  Boolean  @default(false) @map("is_internal")
+  attachments Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_replies")
+}
+
+// Sync Logs for MikroTik integration
+model SyncLog {
+  id               String        @id @default(cuid())
+  routerId         String        @map("router_id")
+  syncType         String        @map("sync_type")
+  direction        SyncDirection
+  status           SyncStatus
+  startedAt        DateTime      @default(now()) @map("started_at")
+  completedAt      DateTime?     @map("completed_at")
+  recordsProcessed Int           @default(0) @map("records_processed")
+  recordsCreated   Int           @default(0) @map("records_created")
+  recordsUpdated   Int           @default(0) @map("records_updated")
+  recordsFailed    Int           @default(0) @map("records_failed")
+  errorMessage     String?       @map("error_message")
+  details          Json?
+  triggeredBy      String?       @map("triggered_by")
+
+  router Router @relation(fields: [routerId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [triggeredBy], references: [id], onDelete: SetNull)
+
+  @@index([routerId])
+  @@index([syncType])
+  @@index([status])
+  @@index([startedAt])
+  @@map("sync_logs")
+}
+
+// System Settings
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  category    String   @default("GENERAL")
+  description String?
+  isEncrypted Boolean  @default(false) @map("is_encrypted")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@map("system_settings")
+}
+
+// =============================================
+// ISP Logging System
+// =============================================
+
+enum RouterLogType {
+  TRAFFIC
+  SYSTEM
+  FIREWALL
+  DHCP
+  DNS
+  PPPOE
+  USER
+  ERROR
+  INFO
+  WARNING
+  HOTSPOT
+  WIRELESS
+}
+
+enum LogSeverity {
+  DEBUG
+  INFO
+  NOTICE
+  WARNING
+  ERROR
+  CRITICAL
+  ALERT
+  EMERGENCY
+}
+
+// Router Logs - Traffic and System logs from MikroTik
+model RouterLog {
+  id        String        @id @default(cuid())
+  routerId  String        @map("router_id")
+  logType   RouterLogType @map("log_type")
+  severity  LogSeverity   @default(INFO)
+  timestamp DateTime      @default(now())
+
+  // Log content
+  message  String
+  topic    String? // MikroTik log topic
+  facility String? // System facility
+
+  // Traffic specific fields
+  srcAddress String? @map("src_address")
+  dstAddress String? @map("dst_address")
+  srcPort    Int?    @map("src_port")
+  dstPort    Int?    @map("dst_port")
+  protocol   String? // tcp, udp, icmp, etc.
+  interface  String? // Network interface
+
+  // Connection details
+  connectionId String? @map("connection_id")
+  customerId   String? @map("customer_id")
+  username     String? // PPPoE username if applicable
+
+  // Data usage for traffic logs
+  bytesIn    BigInt? @map("bytes_in")
+  bytesOut   BigInt? @map("bytes_out")
+  packetsIn  Int?    @map("packets_in")
+  packetsOut Int?    @map("packets_out")
+
+  // Raw log data
+  rawData Json? @map("raw_data")
+
+  // Processing
+  isProcessed Boolean   @default(false) @map("is_processed")
+  processedAt DateTime? @map("processed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  router   Router       @relation(fields: [routerId], references: [id], onDelete: Cascade)
+  customer IspCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([routerId])
+  @@index([logType])
+  @@index([severity])
+  @@index([timestamp])
+  @@index([customerId])
+  @@index([username])
+  @@index([isProcessed])
+  @@map("router_logs")
+}
+
+// Traffic Statistics - Aggregated per customer
+model TrafficStat {
+  id         String @id @default(cuid())
+  customerId String @map("customer_id")
+  routerId   String @map("router_id")
+
+  // Time period
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  periodType  String   @map("period_type") // HOURLY, DAILY, MONTHLY
+
+  // Traffic data
+  totalBytesIn    BigInt @default(0) @map("total_bytes_in")
+  totalBytesOut   BigInt @default(0) @map("total_bytes_out")
+  totalPacketsIn  Int    @default(0) @map("total_packets_in")
+  totalPacketsOut Int    @default(0) @map("total_packets_out")
+
+  // Peak usage
+  peakDownloadSpeed BigInt? @map("peak_download_speed")
+  peakUploadSpeed   BigInt? @map("peak_upload_speed")
+
+  // Session data
+  sessionsCount   Int @default(0) @map("sessions_count")
+  totalOnlineTime Int @default(0) @map("total_online_time") // in seconds
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  customer IspCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  router   Router      @relation(fields: [routerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, periodType, periodStart])
+  @@index([customerId])
+  @@index([routerId])
+  @@index([periodStart])
+  @@index([periodType])
+  @@map("traffic_stats")
+}
+
+// App System Logs - For admin monitoring
+model AppSystemLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+
+  // Log categorization
+  level     LogSeverity @default(INFO)
+  category  String // AUTH, DATABASE, API, SYNC, BILLING, SECURITY, SYSTEM
+  component String // Which service/component generated the log
+
+  // Log content
+  message String
+  details Json? // Structured log data
+
+  // Request context
+  requestId String? @map("request_id")
+  userId    String? @map("user_id")
+  userRole  String? @map("user_role")
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+  path      String? // API path or page URL
+  method    String? // HTTP method
+
+  // Error details
+  errorCode  String? @map("error_code")
+  errorStack String? @map("error_stack")
+
+  // Entity references (for entity-specific logs)
+  entityType String? @map("entity_type") // customer, router, invoice, etc.
+  entityId   String? @map("entity_id")
+
+  // Processing
+  isRead Boolean   @default(false) @map("is_read")
+  readBy String?   @map("read_by")
+  readAt DateTime? @map("read_at")
+
+  // Alerting
+  isAlert   Boolean @default(false) @map("is_alert")
+  alertSent Boolean @default(false) @map("alert_sent")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user       User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  readByUser User? @relation("LogReadBy", fields: [readBy], references: [id], onDelete: SetNull)
+
+  @@index([level])
+  @@index([category])
+  @@index([component])
+  @@index([timestamp])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([isRead])
+  @@index([isAlert])
+  @@map("app_system_logs")
+}
+
+// Log Retention Policy Configuration
+model LogRetentionPolicy {
+  id              String   @id @default(cuid())
+  logType         String   @map("log_type") // ROUTER_TRAFFIC, ROUTER_SYSTEM, APP_SYSTEM
+  retentionDays   Int      @map("retention_days")
+  archiveEnabled  Boolean  @default(true) @map("archive_enabled")
+  archiveLocation String?  @map("archive_location")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([logType])
+  @@map("log_retention_policies")
+}
+
+// Alert Rules for log monitoring
+model LogAlertRule {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  // Conditions
+  logType   String       @map("log_type") // Which log type to monitor
+  severity  LogSeverity? @map("severity") // Minimum severity
+  category  String?      @map("category")
+  component String?      @map("component")
+  keywords  String[]     @default([]) // Keywords to match in message
+
+  // Threshold
+  thresholdCount  Int @default(1) @map("threshold_count") // Number of occurrences
+  thresholdWindow Int @default(5) @map("threshold_window") // Time window in minutes
+
+  // Actions
+  sendEmail    Boolean @default(true) @map("send_email")
+  sendSms      Boolean @default(false) @map("send_sms")
+  notifyAdmins Boolean @default(true) @map("notify_admins")
+  webhookUrl   String? @map("webhook_url")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("log_alert_rules")
+}
