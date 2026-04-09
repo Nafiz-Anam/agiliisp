@@ -11,6 +11,11 @@ router
   .get(auth('manageCustomers'), validate(ispCustomerValidation.getCustomers), ispCustomerController.getCustomers)
   .post(auth('manageCustomers'), validate(ispCustomerValidation.createCustomer), ispCustomerController.createCustomer);
 
+// Bulk operations (before /:customerId to avoid conflict)
+router.post('/bulk-suspend', auth('manageCustomers'), ispCustomerController.bulkSuspend);
+router.post('/bulk-activate', auth('manageCustomers'), ispCustomerController.bulkActivate);
+router.post('/bulk-change-package', auth('manageCustomers'), ispCustomerController.bulkChangePackage);
+
 router
   .route('/:customerId')
   .get(auth('manageCustomers'), validate(ispCustomerValidation.customerId), ispCustomerController.getCustomerById)

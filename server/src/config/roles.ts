@@ -228,7 +228,15 @@ const allRoles = {
     'manageInventory',
   ],
   [Role.RESELLER]: ['viewISPDashboard', 'manageCustomers', 'manageInvoices', 'manageTickets'],
-  [Role.CUSTOMER]: ['viewISPDashboard'],
+  [Role.CUSTOMER]: [
+    'viewISPDashboard',
+    'customerPortal',
+    'customerViewInvoices',
+    'customerViewPayments',
+    'customerManageTickets',
+    'customerViewProfile',
+    'customerUpdateProfile',
+  ],
 };
 
 export const roles = Object.keys(allRoles);

@@ -5,7 +5,7 @@ import {
   Search, RefreshCw, MoreHorizontal, Eye, DollarSign,
   CheckCircle, Clock, AlertCircle, XCircle, FileText,
   Plus, Trash2, Zap, TrendingUp, Users, BarChart3,
-  CreditCard, Ban,
+  CreditCard, Ban, Download,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +63,20 @@ export default function InvoicesPage() {
   const [dashboard, setDashboard] = useState<any>(null);
   const [dashLoading, setDashLoading] = useState(true);
 
+  // Dashboard — Recent Payments table
+  const [dashPayments, setDashPayments] = useState<any[]>([]);
+  const [dashPaymentsMeta, setDashPaymentsMeta] = useState<PaginationMeta | null>(null);
+  const [dashPaymentsPage, setDashPaymentsPage] = useState(1);
+  const [dashPaymentsSearch, setDashPaymentsSearch] = useState("");
+  const [dashPaymentsLoading, setDashPaymentsLoading] = useState(false);
+
+  // Dashboard — Due List table
+  const [dueList, setDueList] = useState<any[]>([]);
+  const [dueListMeta, setDueListMeta] = useState<PaginationMeta | null>(null);
+  const [dueListPage, setDueListPage] = useState(1);
+  const [dueListSearch, setDueListSearch] = useState("");
+  const [dueListLoading, setDueListLoading] = useState(false);
+
   // Payments tab
   const [payments, setPayments] = useState<any[]>([]);
   const [paymentsMeta, setPaymentsMeta] = useState<PaginationMeta | null>(null);
@@ -103,6 +117,31 @@ export default function InvoicesPage() {
   const [showAutoGenerate, setShowAutoGenerate] = useState(false);
   const [autoGenDueDate, setAutoGenDueDate] = useState("");
   const [autoGenerating, setAutoGenerating] = useState(false);
+
+  // Bulk operations
+  const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
+  const [bulkSending, setBulkSending] = useState(false);
+
+  const toggleInvSelect = (id: string) => {
+    setSelectedInvoices(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleInvSelectAll = () => {
+    if (selectedInvoices.size === invoices.length) setSelectedInvoices(new Set());
+    else setSelectedInvoices(new Set(invoices.map(i => i.id)));
+  };
+
+  const handleBulkSend = async () => {
+    if (selectedInvoices.size === 0) return;
+    setBulkSending(true);
+    try {
+      const res = await api.post("/isp/invoices/bulk-send", { ids: Array.from(selectedInvoices) });
+      const r = res.data.data;
+      toast.success(`${r.success} invoices sent, ${r.failed} failed`);
+      setSelectedInvoices(new Set());
+      fetchInvoices();
+    } catch { toast.error("Bulk send failed"); }
+    finally { setBulkSending(false); }
+  };
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
@@ -149,7 +188,32 @@ export default function InvoicesPage() {
     finally { setPaymentsLoading(false); }
   }, [paymentsPage, paymentsSearch, paymentsMethodFilter]);
 
+  const fetchDashPayments = useCallback(async () => {
+    setDashPaymentsLoading(true);
+    try {
+      const params: any = { page: dashPaymentsPage, limit: 10, sortBy: "paymentDate", sortOrder: "desc" };
+      if (dashPaymentsSearch) params.search = dashPaymentsSearch;
+      const res = await api.get("/isp/invoices/payments", { params });
+      setDashPayments(res.data.data.payments || []);
+      setDashPaymentsMeta(res.data.meta?.pagination || null);
+    } catch { /* silent */ }
+    finally { setDashPaymentsLoading(false); }
+  }, [dashPaymentsPage, dashPaymentsSearch]);
+
+  const fetchDueList = useCallback(async () => {
+    setDueListLoading(true);
+    try {
+      const params: any = { page: dueListPage, limit: 10, status: "OVERDUE", sortBy: "dueDate", sortOrder: "asc" };
+      if (dueListSearch) params.search = dueListSearch;
+      const res = await api.get("/isp/invoices", { params });
+      setDueList(res.data.data.invoices || []);
+      setDueListMeta(res.data.meta?.pagination || null);
+    } catch { /* silent */ }
+    finally { setDueListLoading(false); }
+  }, [dueListPage, dueListSearch]);
+
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+  useEffect(() => { if (activeTab === "dashboard") { fetchDashPayments(); fetchDueList(); } }, [activeTab, fetchDashPayments, fetchDueList]);
   useEffect(() => { if (activeTab === "invoices") fetchInvoices(); }, [activeTab, fetchInvoices]);
   useEffect(() => { if (activeTab === "payments") fetchPayments(); }, [activeTab, fetchPayments]);
 
@@ -253,6 +317,20 @@ export default function InvoicesPage() {
     setPage(1);
   };
 
+  const downloadInvoicePDF = async (invoiceId: string) => {
+    try {
+      const res = await api.get(`/isp/invoices/${invoiceId}/pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice-${invoiceId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch { toast.error("Failed to download invoice PDF"); }
+  };
+
   const totalOutstanding = invoices.filter((i) => !["PAID", "CANCELLED", "REFUNDED"].includes(i.status)).reduce((sum, i) => sum + i.balanceDue, 0);
 
   const DashboardCard = ({ icon, label, value, className = "" }: { icon: React.ReactNode; label: string; value: string | number; className?: string }) => (
@@ -314,36 +392,96 @@ export default function InvoicesPage() {
               )}
 
               <div className="grid md:grid-cols-2 gap-4">
-                {dashboard.upcomingInvoices?.length > 0 && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-slate-700 mb-3">Upcoming Invoices (7 days)</h3>
-                      <div className="space-y-2">
-                        {dashboard.upcomingInvoices.map((inv: any) => (
-                          <div key={inv.id} className="flex justify-between text-sm border-b border-slate-100 pb-2">
-                            <span className="text-slate-600">{inv.customer?.fullName} — {inv.invoiceNumber}</span>
-                            <span className="font-medium">{fmt(Number(inv.totalAmount))}</span>
-                          </div>
-                        ))}
+                {/* Recent Payments Table */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-slate-700">Recent Payments</h3>
+                      <div className="relative w-48">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                        <Input placeholder="Search..." value={dashPaymentsSearch} onChange={(e) => { setDashPaymentsSearch(e.target.value); setDashPaymentsPage(1); }} className="pl-8 h-8 text-xs" />
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
-                {dashboard.recentPayments?.length > 0 && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-slate-700 mb-3">Recent Payments</h3>
-                      <div className="space-y-2">
-                        {dashboard.recentPayments.map((p: any, i: number) => (
-                          <div key={i} className="flex justify-between text-sm border-b border-slate-100 pb-2">
-                            <span className="text-slate-600">{p.invoiceNumber || "—"}</span>
-                            <span className="font-medium text-emerald-600">{fmt(p.amount)}</span>
-                          </div>
-                        ))}
+                    </div>
+                    {dashPaymentsLoading ? (
+                      <div className="flex items-center justify-center py-8"><div className="h-5 w-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" /></div>
+                    ) : (
+                      <>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Invoice #</TableHead>
+                              <TableHead className="text-xs">Customer</TableHead>
+                              <TableHead className="text-xs">Method</TableHead>
+                              <TableHead className="text-xs text-right">Amount</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {dashPayments.length > 0 ? dashPayments.map((p: any) => (
+                              <TableRow key={p.id}>
+                                <TableCell className="text-xs">{p.invoice?.invoiceNumber || "—"}</TableCell>
+                                <TableCell className="text-xs text-slate-500">{p.invoice?.customer?.fullName || "—"}</TableCell>
+                                <TableCell><Badge className={`text-[10px] ${PAYMENT_METHODS[p.paymentMethod] || "bg-slate-100 text-slate-600"}`}>{fmtLabel(p.paymentMethod)}</Badge></TableCell>
+                                <TableCell className="text-xs text-right font-medium text-emerald-600">{fmt(Number(p.amount))}</TableCell>
+                              </TableRow>
+                            )) : (
+                              <TableRow><TableCell colSpan={4} className="text-center text-xs text-slate-400 py-6">No payments found</TableCell></TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                        {dashPaymentsMeta && dashPaymentsMeta.totalPages > 1 && (
+                          <DataTablePagination page={dashPaymentsPage} totalPages={dashPaymentsMeta.totalPages} totalResults={dashPaymentsMeta.totalResults} limit={10} onPageChange={setDashPaymentsPage} />
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Due List Table */}
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-slate-700 flex items-center gap-2"><AlertCircle className="h-4 w-4 text-red-500" /> Due List</h3>
+                      <div className="relative w-48">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                        <Input placeholder="Search..." value={dueListSearch} onChange={(e) => { setDueListSearch(e.target.value); setDueListPage(1); }} className="pl-8 h-8 text-xs" />
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    </div>
+                    {dueListLoading ? (
+                      <div className="flex items-center justify-center py-8"><div className="h-5 w-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" /></div>
+                    ) : (
+                      <>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Invoice #</TableHead>
+                              <TableHead className="text-xs">Customer</TableHead>
+                              <TableHead className="text-xs text-right">Balance Due</TableHead>
+                              <TableHead className="text-xs text-right">Overdue</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {dueList.length > 0 ? dueList.map((inv: any) => {
+                              const daysOverdue = Math.floor((Date.now() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+                              return (
+                                <TableRow key={inv.id}>
+                                  <TableCell className="text-xs font-medium">{inv.invoiceNumber}</TableCell>
+                                  <TableCell className="text-xs text-slate-500">{inv.customer?.fullName || "—"}</TableCell>
+                                  <TableCell className="text-xs text-right font-medium text-red-600">{fmt(Number(inv.balanceDue))}</TableCell>
+                                  <TableCell className="text-right"><Badge className={`text-[10px] ${daysOverdue > 30 ? "bg-red-100 text-red-700" : daysOverdue > 14 ? "bg-amber-100 text-amber-700" : "bg-yellow-100 text-yellow-700"}`}>{daysOverdue}d</Badge></TableCell>
+                                </TableRow>
+                              );
+                            }) : (
+                              <TableRow><TableCell colSpan={4} className="text-center text-xs text-slate-400 py-6">No overdue invoices</TableCell></TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                        {dueListMeta && dueListMeta.totalPages > 1 && (
+                          <DataTablePagination page={dueListPage} totalPages={dueListMeta.totalPages} totalResults={dueListMeta.totalResults} limit={10} onPageChange={setDueListPage} />
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </>
           ) : null}
@@ -359,6 +497,16 @@ export default function InvoicesPage() {
               <AlertCircle className="h-4 w-4 text-amber-500" />
               <span className="text-sm font-medium text-amber-700">Outstanding: ${totalOutstanding.toFixed(2)}</span>
             </div>
+          )}
+          {selectedInvoices.size > 0 && (
+            <Button
+              onClick={handleBulkSend}
+              disabled={bulkSending}
+              variant="outline"
+              className="gap-1.5 text-sm h-9 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+            >
+              {bulkSending ? "Sending..." : `Send ${selectedInvoices.size} Invoice${selectedInvoices.size > 1 ? "s" : ""}`}
+            </Button>
           )}
           <Button
             onClick={() => { setAutoGenDueDate(""); setShowAutoGenerate(true); }}
@@ -415,6 +563,9 @@ export default function InvoicesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <th className="w-10 px-3 py-3">
+                    <input type="checkbox" checked={invoices.length > 0 && selectedInvoices.size === invoices.length} onChange={toggleInvSelectAll} className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                  </th>
                   <th className="text-left px-5 py-3">
                     <SortableHeader label="Invoice #" sortKey="invoiceNumber" currentSort={sortBy} currentOrder={sortOrder} onSort={handleSort} />
                   </th>
@@ -438,6 +589,9 @@ export default function InvoicesPage() {
                   <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">No invoices found</td></tr>
                 ) : invoices.map((inv) => (
                   <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                    <td className="px-3 py-3.5">
+                      <input type="checkbox" checked={selectedInvoices.has(inv.id)} onChange={() => toggleInvSelect(inv.id)} className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                    </td>
                     <td className="px-5 py-3.5 font-mono text-blue-600 font-medium text-[13px]">
                       {inv.invoiceNumber}
                     </td>
@@ -474,6 +628,9 @@ export default function InvoicesPage() {
                           <button onClick={() => { setViewInvoice(inv); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
                             <Eye className="h-3.5 w-3.5" /> View Details
                           </button>
+                          <button onClick={() => { downloadInvoicePDF(inv.id); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                            <Download className="h-3.5 w-3.5" /> Download PDF
+                          </button>
                           {!["PAID", "CANCELLED", "REFUNDED"].includes(inv.status) && (
                             <button onClick={() => { openPaymentDialog(inv); setOpenMenu(null); }} className="w-full text-left px-3 py-2 text-sm text-emerald-600 hover:bg-emerald-50 flex items-center gap-2">
                               <DollarSign className="h-3.5 w-3.5" /> Record Payment
@@ -499,7 +656,14 @@ export default function InvoicesPage() {
       {viewInvoice && (
         <Dialog open={!!viewInvoice} onOpenChange={() => setViewInvoice(null)}>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Invoice {viewInvoice.invoiceNumber}</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle>Invoice {viewInvoice.invoiceNumber}</DialogTitle>
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8" onClick={() => downloadInvoicePDF(viewInvoice.id)}>
+                  <Download className="h-3.5 w-3.5" /> Download PDF
+                </Button>
+              </div>
+            </DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-2 gap-3">
                 <DetailRow label="Customer" value={viewInvoice.customer.fullName} />

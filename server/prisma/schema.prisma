@@ -130,6 +130,9 @@ model User {
   inventoryTransactions  InventoryTransaction[]   @relation("TransactionPerformer")
   createdPurchaseOrders  PurchaseOrder[]           @relation("PurchaseOrderCreator")
 
+  // Expense Relations
+  createdExpenses        Expense[]                @relation("ExpenseCreator")
+
   @@map("users")
 }
 
@@ -746,6 +749,8 @@ model Router {
   lastConnectedAt DateTime?    @map("last_connected_at")
   lastSyncAt      DateTime?    @map("last_sync_at")
   syncEnabled     Boolean      @default(true) @map("sync_enabled")
+  snmpCommunity   String?      @map("snmp_community")
+  snmpVersion     Int          @default(2) @map("snmp_version")
   location        String?
   description     String?
   isActive        Boolean      @default(true) @map("is_active")
@@ -1776,4 +1781,121 @@ model PurchaseOrderItem {
   @@index([purchaseOrderId])
   @@index([inventoryItemId])
   @@map("purchase_order_items")
+}
+
+// ═══════════════════════════════════════════════════════
+// Network Monitoring (SNMP)
+// ═══════════════════════════════════════════════════════
+
+enum MonitoredDeviceType {
+  ROUTER
+  OLT
+}
+
+enum MetricType {
+  CPU_USAGE
+  MEMORY_USAGE
+  UPTIME
+  INTERFACE_IN_BYTES
+  INTERFACE_OUT_BYTES
+  INTERFACE_STATUS
+  TEMPERATURE
+  DISK_USAGE
+}
+
+model DeviceMetric {
+  id            String     @id @default(cuid())
+  deviceId      String     @map("device_id")
+  deviceType    MonitoredDeviceType @map("device_type")
+  metricType    MetricType @map("metric_type")
+  value         Float
+  unit          String?
+  interfaceName String?    @map("interface_name")
+  collectedAt   DateTime   @default(now()) @map("collected_at")
+
+  @@index([deviceId, metricType, collectedAt])
+  @@index([deviceType, collectedAt])
+  @@index([collectedAt])
+  @@map("device_metrics")
+}
+
+model DeviceAlert {
+  id             String        @id @default(cuid())
+  deviceId       String        @map("device_id")
+  deviceType     DeviceType    @map("device_type")
+  alertType      AlertType     @map("alert_type")
+  severity       AlertSeverity @default(MEDIUM)
+  title          String
+  description    String
+  value          Float?
+  threshold      Float?
+  status         AlertStatus   @default(ACTIVE)
+  acknowledgedBy String?       @map("acknowledged_by")
+  acknowledgedAt DateTime?     @map("acknowledged_at")
+  resolvedAt     DateTime?     @map("resolved_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  @@index([deviceId, deviceType, status])
+  @@index([severity])
+  @@index([status, createdAt])
+  @@map("device_alerts")
+}
+
+model MonitoringConfig {
+  id              String      @id @default(cuid())
+  deviceId        String?     @map("device_id")
+  deviceType      MonitoredDeviceType? @map("device_type")
+  pollingInterval Int         @default(300)  @map("polling_interval")
+  cpuThreshold    Float       @default(80)   @map("cpu_threshold")
+  memoryThreshold Float       @default(90)   @map("memory_threshold")
+  tempThreshold   Float?      @default(75)   @map("temp_threshold")
+  retentionDays   Int         @default(30)   @map("retention_days")
+  isEnabled       Boolean     @default(true) @map("is_enabled")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  @@unique([deviceId, deviceType])
+  @@map("monitoring_configs")
+}
+
+// ═══════════════════════════════════════════════════════
+// Expense Tracking & Financial
+// ═══════════════════════════════════════════════════════
+
+enum ExpenseCategory {
+  SALARY
+  RENT
+  UTILITIES
+  BANDWIDTH
+  EQUIPMENT
+  MAINTENANCE
+  MARKETING
+  TRANSPORT
+  TAXES
+  LICENSES
+  INSURANCE
+  OTHER
+}
+
+model Expense {
+  id            String          @id @default(cuid())
+  category      ExpenseCategory
+  amount        Decimal         @db.Decimal(12, 2)
+  description   String
+  vendor        String?
+  referenceNo   String?         @map("reference_no")
+  expenseDate   DateTime        @map("expense_date")
+  paymentMethod String?         @map("payment_method")
+  isRecurring   Boolean         @default(false) @map("is_recurring")
+  recurringDay  Int?            @map("recurring_day")
+  notes         String?
+  createdBy     String?         @map("created_by")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  creator User? @relation("ExpenseCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([expenseDate])
+  @@map("expenses")
 }

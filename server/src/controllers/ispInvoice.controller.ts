@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import catchAsync from '../utils/catchAsync';
 import { sendSuccess, sendCreated } from '../utils/apiResponse';
 import invoiceService from '../services/invoice.service';
+import exportService from '../services/export.service';
 
 const createInvoice = catchAsync(async (req: Request, res: Response) => {
   const userId = (req as any).user?.id;
@@ -81,4 +82,14 @@ const markInvoiceSent = catchAsync(async (req: Request, res: Response) => {
   return sendSuccess(res, { invoice }, 'Invoice marked as sent', undefined, (req as any).requestId);
 });
 
-export default { createInvoice, getInvoices, getInvoiceById, addPayment, autoGenerateInvoices, getBillingDashboard, getPayments, markInvoiceSent };
+const downloadInvoicePDF = catchAsync(async (req: Request, res: Response) => {
+  const invoice = await invoiceService.getInvoiceById(req.params.invoiceId as string);
+  await exportService.generateInvoicePDF(invoice, res);
+});
+
+const bulkSendInvoices = catchAsync(async (req: Request, res: Response) => {
+  const result = await invoiceService.bulkSendInvoices(req.body.ids);
+  return sendSuccess(res, result, `Bulk send: ${result.success} sent, ${result.failed} failed`, undefined, (req as any).requestId);
+});
+
+export default { createInvoice, getInvoices, getInvoiceById, addPayment, autoGenerateInvoices, getBillingDashboard, getPayments, markInvoiceSent, downloadInvoicePDF, bulkSendInvoices };

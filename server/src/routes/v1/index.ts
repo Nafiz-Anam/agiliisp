@@ -23,6 +23,10 @@ import ispInvoiceRoute from './isp/invoice.route';
 import ispTicketRoute from './isp/ticket.route';
 import ispRouterLogRoute from './isp/routerLog.route';
 import ispInventoryRoute from './isp/inventory.route';
+import ispReportRoute from './isp/report.route';
+import ispMonitoringRoute from './isp/monitoring.route';
+import ispExpenseRoute from './isp/expense.route';
+import customerPortalRoute from './customerPortal.route';
 import config from '../../config/config';
 
 const router = express.Router();
@@ -119,6 +123,22 @@ const defaultRoutes = [
   {
     path: '/isp/inventory',
     route: ispInventoryRoute,
+  },
+  {
+    path: '/isp/reports',
+    route: ispReportRoute,
+  },
+  {
+    path: '/customer-portal',
+    route: customerPortalRoute,
+  },
+  {
+    path: '/isp/monitoring',
+    route: ispMonitoringRoute,
+  },
+  {
+    path: '/isp/expenses',
+    route: ispExpenseRoute,
   },
 ];
 

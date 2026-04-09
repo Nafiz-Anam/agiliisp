@@ -36,7 +36,8 @@ export default function LoginPage() {
     try {
       await login(data.email, data.password);
       toast.success("Welcome back!");
-      router.push("/dashboard");
+      const loggedUser = useAuthStore.getState().user;
+      router.push(loggedUser?.role === "CUSTOMER" ? "/portal" : "/dashboard");
     } catch (err: any) {
       toast.error(err.response?.data?.error?.message || "Login failed");
     } finally {

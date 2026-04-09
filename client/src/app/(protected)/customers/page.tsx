@@ -71,6 +71,46 @@ export default function CustomersPage() {
   const [saving, setSaving] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
+  // Bulk operations
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<string | null>(null);
+  const [bulkPackageId, setBulkPackageId] = useState("");
+  const [bulkReason, setBulkReason] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleSelectAll = () => {
+    if (selected.size === customers.length) setSelected(new Set());
+    else setSelected(new Set(customers.map(c => c.id)));
+  };
+
+  const executeBulkAction = async () => {
+    if (selected.size === 0) return;
+    setBulkLoading(true);
+    try {
+      const ids = Array.from(selected);
+      let res;
+      if (bulkAction === "suspend") {
+        res = await api.post("/isp/customers/bulk-suspend", { ids, reason: bulkReason || "Bulk suspended" });
+      } else if (bulkAction === "activate") {
+        res = await api.post("/isp/customers/bulk-activate", { ids });
+      } else if (bulkAction === "change-package") {
+        if (!bulkPackageId) { toast.error("Select a package"); setBulkLoading(false); return; }
+        res = await api.post("/isp/customers/bulk-change-package", { ids, packageId: bulkPackageId });
+      }
+      const r = res?.data?.data;
+      toast.success(`${r?.success || 0} succeeded, ${r?.failed || 0} failed`);
+      setSelected(new Set());
+      setBulkAction(null);
+      setBulkReason("");
+      setBulkPackageId("");
+      fetchCustomers();
+    } catch { toast.error("Bulk action failed"); }
+    finally { setBulkLoading(false); }
+  };
+
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
@@ -232,6 +272,60 @@ export default function CustomersPage() {
         </Button>
       </div>
 
+      {/* Bulk Action Bar */}
+      {selected.size > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-3 flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-700">{selected.size} customer{selected.size > 1 ? "s" : ""} selected</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 border-amber-200 text-amber-700 hover:bg-amber-50" onClick={() => setBulkAction("suspend")}>
+                Suspend
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => setBulkAction("activate")}>
+                Activate
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => setBulkAction("change-package")}>
+                Change Package
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setSelected(new Set())}>Clear</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bulk Action Dialogs */}
+      {bulkAction && (
+        <Dialog open={!!bulkAction} onOpenChange={() => setBulkAction(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>
+                {bulkAction === "suspend" ? "Bulk Suspend" : bulkAction === "activate" ? "Bulk Activate" : "Bulk Change Package"} ({selected.size} customers)
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 pt-2">
+              {bulkAction === "suspend" && (
+                <div><Label>Reason</Label><Input value={bulkReason} onChange={e => setBulkReason(e.target.value)} placeholder="Non-payment, etc." /></div>
+              )}
+              {bulkAction === "change-package" && (
+                <div>
+                  <Label>New Package</Label>
+                  <select value={bulkPackageId} onChange={e => setBulkPackageId(e.target.value)} className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white">
+                    <option value="">Select package...</option>
+                    {packages.map(p => <option key={p.id} value={p.id}>{p.name} ({p.downloadSpeed}/{p.uploadSpeed} Mbps)</option>)}
+                  </select>
+                </div>
+              )}
+              {bulkAction === "activate" && (
+                <p className="text-sm text-slate-600">This will reactivate {selected.size} customer{selected.size > 1 ? "s" : ""} and restore their service.</p>
+              )}
+              <Button onClick={executeBulkAction} disabled={bulkLoading} className="w-full bg-blue-500 hover:bg-blue-600 text-white">
+                {bulkLoading ? "Processing..." : "Confirm"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Table */}
       <Card className="border-slate-200/80">
         <CardContent className="p-0">
@@ -239,6 +333,9 @@ export default function CustomersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <th className="w-10 px-3 py-3">
+                    <input type="checkbox" checked={customers.length > 0 && selected.size === customers.length} onChange={toggleSelectAll} className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                  </th>
                   <th className="text-left px-5 py-3">
                     <SortableHeader label="Customer" sortKey="fullName" currentSort={sortBy} currentOrder={sortOrder} onSort={handleSort} />
                   </th>
@@ -255,11 +352,14 @@ export default function CustomersPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">Loading...</td></tr>
+                  <tr><td colSpan={9} className="px-5 py-12 text-center text-slate-400">Loading...</td></tr>
                 ) : customers.length === 0 ? (
-                  <tr><td colSpan={8} className="px-5 py-12 text-center text-slate-400">No customers found</td></tr>
+                  <tr><td colSpan={9} className="px-5 py-12 text-center text-slate-400">No customers found</td></tr>
                 ) : customers.map((c) => (
                   <tr key={c.id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                    <td className="px-3 py-3.5">
+                      <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                    </td>
                     <td className="px-5 py-3.5">
                       <p className="font-medium text-slate-700">{c.fullName}</p>
                       <p className="text-[11px] text-slate-400">{c.username}</p>

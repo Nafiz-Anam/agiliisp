@@ -16,6 +16,8 @@ import {
     Wifi,
     Server,
     Shield,
+    BarChart3,
+    DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
@@ -36,9 +38,12 @@ const navItems = [
     { href: "/olt", label: "OLT", icon: Server },
     { href: "/inventory", label: "Inventory", icon: Package },
     { href: "/invoices", label: "Billing", icon: FileText },
+    { href: "/expenses", label: "Expenses", icon: DollarSign },
+    { href: "/reports", label: "Reports", icon: BarChart3 },
+    { href: "/monitoring", label: "Monitoring", icon: Activity },
     { href: "/tickets", label: "Support Tickets", icon: HeadphonesIcon },
     { href: "/roles", label: "Roles & Permissions", icon: Shield, adminOnly: true },
-    { href: "/users", label: "Employees", icon: Activity, adminOnly: true },
+    { href: "/users", label: "Employees", icon: Users, adminOnly: true },
 ] as const;
 
 interface SidebarProps {

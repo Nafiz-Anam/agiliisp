@@ -1,6 +1,7 @@
 import logger from '../config/logger';
 import invoiceService from './invoice.service';
 import customerService from './customer.service';
+import emailService from './email.service';
 import prisma from '../client';
 
 /**
@@ -38,7 +39,7 @@ const scheduleOverdueMarking = (): void => {
         dueDate: { lt: now },
       },
       include: {
-        customer: { select: { id: true, gracePeriod: true, username: true } },
+        customer: { select: { id: true, gracePeriod: true, username: true, email: true, fullName: true } },
       },
     });
 
@@ -54,6 +55,15 @@ const scheduleOverdueMarking = (): void => {
           data: { status: 'OVERDUE' },
         });
         marked++;
+        // Send overdue reminder email
+        const daysOverdue = Math.floor((now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (invoice.customer?.email) {
+          try {
+            await emailService.sendOverdueReminderEmail(
+              invoice.customer.email, invoice, invoice.customer.fullName, daysOverdue
+            );
+          } catch (err) { logger.error(`Failed to send overdue email for ${invoice.invoiceNumber}`, err); }
+        }
       }
     }
 
@@ -144,7 +154,7 @@ const scheduleAutoSuspend = (): void => {
           },
         },
       },
-      select: { id: true, autoSuspendDays: true, username: true },
+      select: { id: true, autoSuspendDays: true, username: true, email: true, fullName: true },
     });
 
     let suspended = 0;
@@ -165,10 +175,21 @@ const scheduleAutoSuspend = (): void => {
           (Date.now() - oldestOverdue.dueDate.getTime()) / (1000 * 60 * 60 * 24)
         );
 
+        const daysUntilSuspend = customer.autoSuspendDays - daysPastDue;
+
         if (daysPastDue >= customer.autoSuspendDays) {
           await customerService.suspendCustomer(customer.id, 'Auto-suspended: payment overdue');
           suspended++;
           logger.info(`ISP Scheduler: Auto-suspended customer ${customer.username}`);
+          // Send suspension email
+          if (customer.email) {
+            try { await emailService.sendServiceSuspendedEmail(customer.email, customer.fullName, 'Payment overdue — auto-suspended'); }
+            catch (err) { logger.error(`Failed to send suspension email to ${customer.username}`, err); }
+          }
+        } else if (daysUntilSuspend <= 3 && daysUntilSuspend > 0 && customer.email) {
+          // Send suspension warning (3 days or less before suspend)
+          try { await emailService.sendSuspensionWarningEmail(customer.email, customer.fullName, daysUntilSuspend, oldestOverdue); }
+          catch (err) { logger.error(`Failed to send suspension warning to ${customer.username}`, err); }
         }
       } catch (err) {
         logger.error(`ISP Scheduler: Failed to auto-suspend customer ${customer.username}`, err);

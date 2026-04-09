@@ -3,6 +3,7 @@ import { InvoiceStatus, PaymentMethod, PaymentStatus, Prisma } from '@prisma/cli
 import ApiError from '../utils/ApiError';
 import prisma from '../client';
 import logger from '../config/logger';
+import emailService from './email.service';
 
 const generateInvoiceNumber = async (): Promise<string> => {
   const count = await prisma.invoice.count();
@@ -141,7 +142,7 @@ const getInvoiceById = async (id: string) => {
   const invoice = await prisma.invoice.findUnique({
     where: { id },
     include: {
-      customer: { select: { id: true, fullName: true, username: true, email: true, phone: true } },
+      customer: { select: { id: true, fullName: true, username: true, email: true, phone: true, address: true, city: true, state: true, zipCode: true } },
       reseller: { select: { id: true, businessName: true } },
       items: true,
       payments: true,
@@ -231,6 +232,18 @@ const addPayment = async (
       logger.error(`Failed to auto-reactivate customer ${invoice.customerId}`, err);
     }
   }
+
+  // Send payment confirmation + reactivation emails
+  try {
+    const customer = await prisma.ispCustomer.findUnique({ where: { id: invoice.customerId }, select: { email: true, fullName: true } });
+    if (customer?.email) {
+      const updatedInvoice = { ...invoice, paidAmount: newPaidAmount, balanceDue: Math.max(0, newBalanceDue), status: newStatus };
+      await emailService.sendPaymentConfirmationEmail(customer.email, { ...payment, amount: paymentBody.amount }, updatedInvoice, customer.fullName);
+      if (newStatus === InvoiceStatus.PAID && invoice.customer?.status === 'SUSPENDED') {
+        await emailService.sendServiceReactivatedEmail(customer.email, customer.fullName);
+      }
+    }
+  } catch (err) { logger.error('Failed to send payment email', err); }
 
   return payment;
 };
@@ -379,12 +392,32 @@ const getPayments = async (options: {
 };
 
 const markInvoiceSent = async (id: string) => {
-  const invoice = await prisma.invoice.findUnique({ where: { id } });
+  const invoice = await prisma.invoice.findUnique({
+    where: { id },
+    include: { customer: { select: { email: true, fullName: true } }, items: true },
+  });
   if (!invoice) throw new ApiError(httpStatus.NOT_FOUND, 'Invoice not found');
-  return prisma.invoice.update({
+  const updated = await prisma.invoice.update({
     where: { id },
     data: { status: 'SENT', sentDate: new Date() },
   });
+
+  // Send invoice email
+  if (invoice.customer?.email) {
+    try { await emailService.sendInvoiceEmail(invoice.customer.email, invoice); }
+    catch (err) { logger.error(`Failed to send invoice email for ${invoice.invoiceNumber}`, err); }
+  }
+
+  return updated;
+};
+
+const bulkSendInvoices = async (ids: string[]) => {
+  let success = 0, failed = 0;
+  for (const id of ids) {
+    try { await markInvoiceSent(id); success++; }
+    catch { failed++; }
+  }
+  return { success, failed, total: ids.length };
 };
 
 export default {
@@ -397,4 +430,5 @@ export default {
   getBillingDashboard,
   getPayments,
   markInvoiceSent,
+  bulkSendInvoices,
 };

@@ -512,6 +512,37 @@ const getCustomerStats = async (customerId: string) => {
   };
 };
 
+// ── Bulk Operations ──
+
+const bulkSuspend = async (ids: string[], reason: string = 'Bulk suspended') => {
+  let success = 0, failed = 0;
+  for (const id of ids) {
+    try { await suspendCustomer(id, reason); success++; }
+    catch { failed++; }
+  }
+  return { success, failed, total: ids.length };
+};
+
+const bulkActivate = async (ids: string[]) => {
+  let success = 0, failed = 0;
+  for (const id of ids) {
+    try { await activateCustomer(id); success++; }
+    catch { failed++; }
+  }
+  return { success, failed, total: ids.length };
+};
+
+const bulkChangePackage = async (ids: string[], packageId: string) => {
+  let success = 0, failed = 0;
+  for (const id of ids) {
+    try {
+      await prisma.ispCustomer.update({ where: { id }, data: { packageId } });
+      success++;
+    } catch { failed++; }
+  }
+  return { success, failed, total: ids.length };
+};
+
 export default {
   createCustomer,
   getCustomers,
@@ -524,4 +555,7 @@ export default {
   syncCustomerToRouter,
   getCustomerConnectionStatus,
   getCustomerStats,
+  bulkSuspend,
+  bulkActivate,
+  bulkChangePackage,
 };
