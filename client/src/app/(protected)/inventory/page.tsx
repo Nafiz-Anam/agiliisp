@@ -36,6 +36,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -848,7 +850,7 @@ export default function InventoryPage() {
           <DialogHeader>
             <DialogTitle>{editingItem ? "Edit Item" : "New Inventory Item"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Name</Label>
@@ -898,13 +900,13 @@ export default function InventoryPage() {
                 <Input type="number" value={itemForm.minStockThreshold} onChange={(e) => setItemForm({ ...itemForm, minStockThreshold: e.target.value })} />
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowItemDialog(false)}>Cancel</Button>
-              <Button onClick={handleSaveItem} className="bg-blue-500 hover:bg-blue-600 text-white">
-                {editingItem ? "Update" : "Create"}
-              </Button>
-            </div>
-          </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowItemDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveItem} className="bg-blue-500 hover:bg-blue-600 text-white">
+              {editingItem ? "Update" : "Create"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -914,8 +916,8 @@ export default function InventoryPage() {
           <DialogHeader>
             <DialogTitle>Record Transaction</DialogTitle>
           </DialogHeader>
-          {transactionItem && (
-            <div className="space-y-4">
+          {transactionItem && (<>
+            <DialogBody className="space-y-4">
               <p className="text-sm text-slate-600">
                 Item: <span className="font-medium text-slate-800">{transactionItem.name}</span> ({transactionItem.sku})
               </p>
@@ -955,14 +957,14 @@ export default function InventoryPage() {
                 <Label>Notes</Label>
                 <Textarea value={txForm.notes} onChange={(e) => setTxForm({ ...txForm, notes: e.target.value })} rows={2} />
               </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={() => setShowTransactionDialog(false)}>Cancel</Button>
-                <Button onClick={handleSubmitTransaction} className="bg-blue-500 hover:bg-blue-600 text-white">
-                  Submit
-                </Button>
-              </div>
-            </div>
-          )}
+            </DialogBody>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowTransactionDialog(false)}>Cancel</Button>
+              <Button onClick={handleSubmitTransaction} className="bg-blue-500 hover:bg-blue-600 text-white">
+                Submit
+              </Button>
+            </DialogFooter>
+          </>)}
         </DialogContent>
       </Dialog>
 
@@ -973,7 +975,7 @@ export default function InventoryPage() {
             <DialogTitle>Item Details</DialogTitle>
           </DialogHeader>
           {detailItem && (
-            <div className="space-y-6">
+            <DialogBody className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Name</p>
@@ -1059,7 +1061,7 @@ export default function InventoryPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </DialogBody>
           )}
         </DialogContent>
       </Dialog>
@@ -1070,7 +1072,7 @@ export default function InventoryPage() {
           <DialogHeader>
             <DialogTitle>New Purchase Order</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <DialogBody className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Supplier</Label>
@@ -1135,13 +1137,13 @@ export default function InventoryPage() {
               ))}
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowPoDialog(false)}>Cancel</Button>
-              <Button onClick={handleCreatePO} className="bg-blue-500 hover:bg-blue-600 text-white">
-                Create PO
-              </Button>
-            </div>
-          </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPoDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreatePO} className="bg-blue-500 hover:bg-blue-600 text-white">
+              Create PO
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1151,8 +1153,8 @@ export default function InventoryPage() {
           <DialogHeader>
             <DialogTitle>Receive Items - {receivePo?.orderNumber}</DialogTitle>
           </DialogHeader>
-          {receivePo && (
-            <div className="space-y-4">
+          {receivePo && (<>
+            <DialogBody className="space-y-4">
               <p className="text-sm text-slate-600">
                 Supplier: <span className="font-medium">{receivePo.supplier}</span>
               </p>
@@ -1180,14 +1182,14 @@ export default function InventoryPage() {
                   );
                 })}
               </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={() => setShowReceiveDialog(false)}>Cancel</Button>
-                <Button onClick={handleReceivePO} className="bg-emerald-500 hover:bg-emerald-600 text-white">
-                  Confirm Receipt
-                </Button>
-              </div>
-            </div>
-          )}
+            </DialogBody>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowReceiveDialog(false)}>Cancel</Button>
+              <Button onClick={handleReceivePO} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                Confirm Receipt
+              </Button>
+            </DialogFooter>
+          </>)}
         </DialogContent>
       </Dialog>
     </div>

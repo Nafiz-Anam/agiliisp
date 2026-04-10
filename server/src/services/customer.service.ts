@@ -3,6 +3,10 @@ import { IspCustomer, CustomerStatus, Prisma } from '@prisma/client';
 import ApiError from '../utils/ApiError';
 import prisma from '../client';
 import mikrotikService from './mikrotik.service';
+import smsService from './sms.service';
+import emailService from './email.service';
+import logger from '../config/logger';
+import customerNoteService from './customerNote.service';
 
 /**
  * Create a new ISP customer
@@ -311,6 +315,14 @@ const suspendCustomer = async (customerId: string, reason?: string): Promise<Isp
     }
   }
 
+  customerNoteService.addSystemNote(customerId, `Customer suspended. Reason: ${reason || 'Manual suspension'}`, { action: 'SUSPEND' }).catch(() => {});
+
+  // Notify admins
+  try {
+    const notifModule = await import('./notification.service');
+    notifModule.default.notifyCustomerStatusChanged(customer.fullName, customer.username, 'SUSPENDED').catch(() => {});
+  } catch {}
+
   return updated;
 };
 
@@ -342,6 +354,14 @@ const activateCustomer = async (customerId: string): Promise<IspCustomer> => {
       console.error('Failed to enable PPPoE secret in router:', error);
     }
   }
+
+  customerNoteService.addSystemNote(customerId, 'Customer activated', { action: 'ACTIVATE' }).catch(() => {});
+
+  // Notify admins
+  try {
+    const notifModule = await import('./notification.service');
+    notifModule.default.notifyCustomerStatusChanged(customer.fullName, customer.username, 'ACTIVE').catch(() => {});
+  } catch {}
 
   return updated;
 };
@@ -543,6 +563,165 @@ const bulkChangePackage = async (ids: string[], packageId: string) => {
   return { success, failed, total: ids.length };
 };
 
+// ═══════════════════════════════════════════
+// Quick Diagnostics
+// ═══════════════════════════════════════════
+
+/**
+ * Force-restart customer's PPPoE connection (disconnect → auto-reconnect)
+ */
+const restartConnection = async (customerId: string) => {
+  const customer = await prisma.ispCustomer.findUnique({
+    where: { id: customerId },
+    include: { router: { select: { id: true, name: true } } },
+  });
+  if (!customer) throw new ApiError(httpStatus.NOT_FOUND, 'Customer not found');
+  if (!customer.router) throw new ApiError(httpStatus.BAD_REQUEST, 'Customer has no router assigned');
+
+  const active = await mikrotikService.getActiveConnections(customer.router.id);
+  const conn = active.find(c => c.name === customer.username);
+  if (!conn) throw new ApiError(httpStatus.NOT_FOUND, 'Customer is not currently connected');
+
+  await mikrotikService.disconnectActiveUser(customer.router.id, conn['.id']);
+  logger.info(`Connection restarted for ${customer.username} by admin`);
+  return { success: true, message: `Connection restarted for ${customer.username}. Auto-reconnect in progress.` };
+};
+
+/**
+ * Reset customer's PPPoE password on the router
+ */
+const resetPPPoEPassword = async (customerId: string, newPassword?: string, sendSms?: boolean) => {
+  const customer = await prisma.ispCustomer.findUnique({
+    where: { id: customerId },
+    include: { router: { select: { id: true, name: true } } },
+  });
+  if (!customer) throw new ApiError(httpStatus.NOT_FOUND, 'Customer not found');
+  if (!customer.router) throw new ApiError(httpStatus.BAD_REQUEST, 'Customer has no router assigned');
+
+  // Generate random password if not provided
+  const password = newPassword || Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 90 + 10);
+
+  // Find the PPPoE secret on the router
+  const secrets = await mikrotikService.getPPPoESecrets(customer.router.id);
+  const secret = secrets.find(s => s.name === customer.username);
+  if (!secret) throw new ApiError(httpStatus.NOT_FOUND, 'PPPoE account not found on router');
+
+  // Update on router
+  await mikrotikService.updatePPPoESecret(customer.router.id, secret['.id'], { password });
+
+  // Update in database
+  await prisma.ispCustomer.update({ where: { id: customerId }, data: { pppoePassword: password } as any });
+
+  // SMS credentials to customer
+  if (sendSms && customer.phone) {
+    await smsService.sendSms(
+      customer.phone,
+      `Your internet login has been updated. Username: ${customer.username}, Password: ${password} — AgiliOSP`,
+      'PASSWORD_RESET',
+    ).catch(() => {});
+  }
+
+  logger.info(`PPPoE password reset for ${customer.username}`);
+  return { success: true, password, username: customer.username };
+};
+
+/**
+ * Check health of customer's assigned router
+ */
+const checkRouterHealth = async (customerId: string) => {
+  const customer = await prisma.ispCustomer.findUnique({
+    where: { id: customerId },
+    include: { router: { select: { id: true, name: true, host: true, status: true } } },
+  });
+  if (!customer) throw new ApiError(httpStatus.NOT_FOUND, 'Customer not found');
+  if (!customer.router) throw new ApiError(httpStatus.BAD_REQUEST, 'Customer has no router assigned');
+
+  const result = await mikrotikService.testConnection(customer.router.id);
+  return { ...result, router: { name: customer.router.name, ip: customer.router.host, status: customer.router.status } };
+};
+
+/**
+ * Get full active connection details for a customer
+ */
+const getDetailedConnectionInfo = async (customerId: string) => {
+  const customer = await prisma.ispCustomer.findUnique({
+    where: { id: customerId },
+    include: { router: { select: { id: true, name: true } } },
+  });
+  if (!customer) throw new ApiError(httpStatus.NOT_FOUND, 'Customer not found');
+  if (!customer.router) return { isOnline: false, connection: null };
+
+  const active = await mikrotikService.getActiveConnections(customer.router.id);
+  const conn = active.find(c => c.name === customer.username);
+  if (!conn) return { isOnline: false, connection: null };
+
+  return {
+    isOnline: true,
+    connection: {
+      connectionId: conn['.id'],
+      username: conn.name,
+      ipAddress: conn.address,
+      macAddress: conn.callerId,
+      uptime: conn.uptime,
+      service: conn.service,
+      sessionId: conn.sessionId,
+      encoding: conn.encoding,
+      limitBytesIn: conn.limitBytesIn,
+      limitBytesOut: conn.limitBytesOut,
+    },
+  };
+};
+
+/**
+ * Send a message (SMS/email) to a customer
+ */
+const sendMessageToCustomer = async (customerId: string, channel: string, message: string, subject?: string) => {
+  const customer = await prisma.ispCustomer.findUnique({ where: { id: customerId } });
+  if (!customer) throw new ApiError(httpStatus.NOT_FOUND, 'Customer not found');
+
+  let smsSent = false;
+  let emailSent = false;
+
+  if ((channel === 'SMS' || channel === 'BOTH') && customer.phone) {
+    const result = await smsService.sendSms(customer.phone, message, 'CUSTOM');
+    smsSent = result.success;
+  }
+
+  if ((channel === 'EMAIL' || channel === 'BOTH') && customer.email) {
+    try {
+      const emailModule = await import('./email.service');
+      await (emailModule.default as any).sendEmail?.({ to: customer.email, subject: subject || 'AgiliOSP Notification', text: message });
+      emailSent = true;
+    } catch { emailSent = false; }
+  }
+
+  return { smsSent, emailSent, customerName: customer.fullName };
+};
+
+/**
+ * Calculate customer uptime percentage over a given number of days
+ */
+async function getCustomerUptime(customerId: string, days: number = 30) {
+  const since = new Date(Date.now() - days * 86400000);
+  const stats = await prisma.trafficStat.findMany({
+    where: { customerId, periodType: 'DAILY', periodStart: { gte: since } },
+    select: { totalOnlineTime: true, periodStart: true },
+  });
+
+  const totalOnlineSecs = stats.reduce((sum, s) => sum + (s.totalOnlineTime || 0), 0);
+  const wallClockSecs = days * 86400;
+  const uptimePercent = wallClockSecs > 0 ? Math.min((totalOnlineSecs / wallClockSecs) * 100, 100) : 0;
+
+  return {
+    totalOnlineSeconds: totalOnlineSecs,
+    wallClockSeconds: wallClockSecs,
+    uptimePercent: Math.round(uptimePercent * 100) / 100,
+    days,
+    dataPoints: stats.length,
+  };
+}
+
+// Re-export all including diagnostics
 export default {
   createCustomer,
   getCustomers,
@@ -558,4 +737,10 @@ export default {
   bulkSuspend,
   bulkActivate,
   bulkChangePackage,
+  getCustomerUptime,
+  restartConnection,
+  resetPPPoEPassword,
+  checkRouterHealth,
+  getDetailedConnectionInfo,
+  sendMessageToCustomer,
 };

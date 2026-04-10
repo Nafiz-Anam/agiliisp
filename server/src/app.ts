@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -51,6 +52,9 @@ app.use(xss());
 
 // gzip compression
 app.use(compression());
+
+// serve uploaded files
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // enable cors
 app.use(

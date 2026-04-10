@@ -1,464 +1,228 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import { Request, Response } from 'express';
+import { Server as HttpServer } from 'http';
+import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
 import prisma from '../client';
 
-// Notification types from Prisma schema
-enum NotificationType {
-  LOGIN_ALERT,
-  PASSWORD_CHANGE,
-  EMAIL_VERIFICATION,
-  TWO_FACTOR_SETUP,
-  ACCOUNT_LOCKED,
-  SECURITY_ALERT,
-  SYSTEM_UPDATE,
-  WELCOME,
-}
-
-interface AuthenticatedWebSocket extends WebSocket {
+interface AuthenticatedSocket extends Socket {
   userId?: string;
-  isAuthenticated?: boolean;
-  isAlive?: boolean;
+  userRole?: string;
 }
 
-interface WebSocketMessage {
-  type: string;
-  data?: any;
-  token?: string;
-}
+class SocketController {
+  private io: Server;
 
-class WebSocketController {
-  private wss: WebSocketServer;
-  private clients: Map<string, Set<AuthenticatedWebSocket>> = new Map(); // userId -> Set of WebSocket connections
-  private clientToUserId: Map<AuthenticatedWebSocket, string> = new Map(); // WebSocket -> userId
+  constructor(httpServer: HttpServer) {
+    const allowedOrigins = config.clientUrl
+      ? [config.clientUrl, config.clientUrl.replace('https://', 'http://'), 'http://localhost:3001', 'http://localhost:3000']
+      : ['http://localhost:3001', 'http://localhost:3000'];
 
-  constructor() {
-    this.wss = new WebSocketServer({
-      port: parseInt(process.env.WS_PORT || '8080'),
-      path: '/ws',
+    this.io = new Server(httpServer, {
+      cors: {
+        origin: allowedOrigins,
+        credentials: true,
+      },
+      path: '/socket.io',
     });
 
+    this.setupMiddleware();
     this.setupEventHandlers();
-    console.log(`WebSocket server started on port ${process.env.WS_PORT || '8080'}`);
+    console.log('Socket.io server initialized (attached to HTTP server)');
   }
 
   /**
-   * Setup WebSocket event handlers
+   * JWT authentication middleware — runs before connection is established
+   */
+  private setupMiddleware(): void {
+    this.io.use(async (socket: AuthenticatedSocket, next) => {
+      const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+      if (!token) {
+        return next(new Error('Authentication token required'));
+      }
+
+      try {
+        const decoded = jwt.verify(token as string, config.jwt.secret) as any;
+        const user = await prisma.user.findUnique({
+          where: { id: decoded.userId },
+          select: { id: true, role: true },
+        });
+        if (!user) {
+          return next(new Error('User not found'));
+        }
+        socket.userId = user.id;
+        socket.userRole = user.role;
+        next();
+      } catch {
+        next(new Error('Invalid authentication token'));
+      }
+    });
+  }
+
+  /**
+   * Setup connection and event handlers
    */
   private setupEventHandlers(): void {
-    this.wss.on('connection', (ws: AuthenticatedWebSocket, req) => {
-      console.log('New WebSocket connection attempt');
+    this.io.on('connection', (socket: AuthenticatedSocket) => {
+      const { userId, userRole } = socket;
+      if (!userId || !userRole) return socket.disconnect();
 
-      // Set up ping/pong for connection health
-      ws.isAlive = true;
-      ws.on('pong', () => {
-        ws.isAlive = true;
-      });
+      // Join personal room and role room
+      socket.join(`user:${userId}`);
+      socket.join(`role:${userRole}`);
 
-      // Handle authentication
-      ws.on('message', async (message: string) => {
+      console.log(`User ${userId} (${userRole}) connected via Socket.io`);
+
+      socket.emit('authenticated', { userId, role: userRole });
+
+      // Handle mark notification as read
+      socket.on('mark_notification_read', async (data: { notificationId: string }) => {
         try {
-          const parsedMessage: WebSocketMessage = JSON.parse(message);
-          await this.handleMessage(ws, parsedMessage);
+          const notifModule = await import('../services/notification.service');
+          await notifModule.default.markAsRead(userId, data.notificationId);
+          // Sync across user's other tabs/devices
+          socket.to(`user:${userId}`).emit('notification:read', { notificationId: data.notificationId });
+          socket.emit('notification:read:success', { notificationId: data.notificationId });
         } catch (error) {
-          console.error('Invalid message format:', error);
-          this.sendError(ws, 'Invalid message format');
+          socket.emit('error', { message: 'Failed to mark notification as read' });
         }
       });
 
-      // Handle connection close
-      ws.on('close', () => {
-        this.handleDisconnect(ws);
-      });
-
-      // Handle connection errors
-      ws.on('error', error => {
-        console.error('WebSocket error:', error);
-        this.handleDisconnect(ws);
-      });
-
-      // Set up ping interval
-      const pingInterval = setInterval(() => {
-        if (ws.isAlive === false) {
-          clearInterval(pingInterval);
-          ws.terminate();
-          return;
-        }
-
-        ws.isAlive = false;
-        ws.ping();
-      }, 30000); // 30 seconds
-
-      // Auto-disconnect after 1 minute if not authenticated
-      setTimeout(() => {
-        if (!ws.isAuthenticated) {
-          ws.close(1008, 'Authentication timeout');
-        }
-      }, 60000);
-    });
-  }
-
-  /**
-   * Handle incoming WebSocket messages
-   */
-  private async handleMessage(
-    ws: AuthenticatedWebSocket,
-    message: WebSocketMessage
-  ): Promise<void> {
-    switch (message.type) {
-      case 'authenticate':
-        await this.handleAuthentication(ws, message.token);
-        break;
-
-      case 'mark_notification_read':
-        await this.handleMarkAsRead(ws, message.data);
-        break;
-
-      case 'mark_all_notifications_read':
-        await this.handleMarkAllAsRead(ws);
-        break;
-
-      case 'subscribe_notifications':
-        await this.handleSubscribe(ws, message.data);
-        break;
-
-      case 'unsubscribe_notifications':
-        await this.handleUnsubscribe(ws, message.data);
-        break;
-
-      case 'ping':
-        this.sendPong(ws);
-        break;
-
-      default:
-        this.sendError(ws, `Unknown message type: ${message.type}`);
-    }
-  }
-
-  /**
-   * Handle authentication
-   */
-  private async handleAuthentication(ws: AuthenticatedWebSocket, token?: string): Promise<void> {
-    try {
-      if (!token) {
-        this.sendError(ws, 'Authentication token required');
-        return;
-      }
-
-      const decoded = jwt.verify(token, config.jwt.secret) as any;
-      ws.userId = decoded.userId;
-      ws.isAuthenticated = true;
-
-      // Add to client tracking
-      if (!this.clients.has(decoded.userId)) {
-        this.clients.set(decoded.userId, new Set());
-      }
-      this.clients.get(decoded.userId)!.add(ws);
-      this.clientToUserId.set(ws, decoded.userId);
-
-      console.log(`User ${decoded.userId} authenticated via WebSocket`);
-
-      // Send success response
-      this.sendMessage(ws, {
-        type: 'authenticated',
-        data: {
-          userId: decoded.userId,
-          message: 'Successfully authenticated',
-        },
-      });
-    } catch (error) {
-      console.error('Authentication error:', error);
-      this.sendError(ws, 'Invalid authentication token');
-    }
-  }
-
-  /**
-   * Handle mark notification as read
-   */
-  private async handleMarkAsRead(
-    ws: AuthenticatedWebSocket,
-    data: { notificationId: string }
-  ): Promise<void> {
-    if (!ws.isAuthenticated || !ws.userId) {
-      this.sendError(ws, 'Not authenticated');
-      return;
-    }
-
-    try {
-      const { default: notificationService } = await import('../services/notification.service');
-      await notificationService.markAsRead(ws.userId, data.notificationId);
-
-      // Broadcast to user's other connections
-      this.broadcastToUser(
-        ws.userId,
-        {
-          type: 'notification_marked_read',
-          data: {
-            notificationId: data.notificationId,
-            userId: ws.userId,
-          },
-        },
-        ws
-      );
-
-      this.sendMessage(ws, {
-        type: 'notification_marked_read_success',
-        data: { notificationId: data.notificationId },
-      });
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      this.sendError(ws, 'Failed to mark notification as read');
-    }
-  }
-
-  /**
-   * Handle mark all notifications as read
-   */
-  private async handleMarkAllAsRead(ws: AuthenticatedWebSocket): Promise<void> {
-    if (!ws.isAuthenticated || !ws.userId) {
-      this.sendError(ws, 'Not authenticated');
-      return;
-    }
-
-    try {
-      const { default: notificationService } = await import('../services/notification.service');
-      const count = await notificationService.markAllAsRead(ws.userId);
-
-      // Broadcast to user's other connections
-      this.broadcastToUser(
-        ws.userId,
-        {
-          type: 'all_notifications_marked_read',
-          data: {
-            count,
-            userId: ws.userId,
-          },
-        },
-        ws
-      );
-
-      this.sendMessage(ws, {
-        type: 'all_notifications_marked_read_success',
-        data: { count },
-      });
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-      this.sendError(ws, 'Failed to mark all notifications as read');
-    }
-  }
-
-  /**
-   * Handle notification subscription
-   */
-  private async handleSubscribe(
-    ws: AuthenticatedWebSocket,
-    data: { types: NotificationType[] }
-  ): Promise<void> {
-    if (!ws.isAuthenticated) {
-      this.sendError(ws, 'Not authenticated');
-      return;
-    }
-
-    // Store subscription data on the WebSocket
-    (ws as any).subscriptions = data.types || [];
-
-    this.sendMessage(ws, {
-      type: 'subscribed',
-      data: { types: data.types },
-    });
-  }
-
-  /**
-   * Handle notification unsubscription
-   */
-  private async handleUnsubscribe(
-    ws: AuthenticatedWebSocket,
-    data: { types: NotificationType[] }
-  ): Promise<void> {
-    if (!ws.isAuthenticated) {
-      this.sendError(ws, 'Not authenticated');
-      return;
-    }
-
-    const subscriptions = (ws as any).subscriptions || [];
-    data.types.forEach((type: NotificationType) => {
-      const index = subscriptions.indexOf(type);
-      if (index > -1) {
-        subscriptions.splice(index, 1);
-      }
-    });
-
-    this.sendMessage(ws, {
-      type: 'unsubscribed',
-      data: { types: data.types },
-    });
-  }
-
-  /**
-   * Handle WebSocket disconnection
-   */
-  private handleDisconnect(ws: AuthenticatedWebSocket): void {
-    if (ws.userId) {
-      console.log(`User ${ws.userId} disconnected from WebSocket`);
-
-      // Remove from client tracking
-      const userClients = this.clients.get(ws.userId);
-      if (userClients) {
-        userClients.delete(ws);
-        if (userClients.size === 0) {
-          this.clients.delete(ws.userId);
-        }
-      }
-      this.clientToUserId.delete(ws);
-    }
-  }
-
-  /**
-   * Send message to WebSocket client
-   */
-  private sendMessage(ws: AuthenticatedWebSocket, message: any): void {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    }
-  }
-
-  /**
-   * Send error message to WebSocket client
-   */
-  private sendError(ws: AuthenticatedWebSocket, error: string): void {
-    this.sendMessage(ws, {
-      type: 'error',
-      data: { error },
-    });
-  }
-
-  /**
-   * Send pong response
-   */
-  private sendPong(ws: AuthenticatedWebSocket): void {
-    this.sendMessage(ws, { type: 'pong' });
-  }
-
-  /**
-   * Broadcast message to all connections of a user
-   */
-  private broadcastToUser(userId: string, message: any, excludeWs?: AuthenticatedWebSocket): void {
-    const userClients = this.clients.get(userId);
-    if (userClients) {
-      userClients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN && client !== excludeWs) {
-          this.sendMessage(client, message);
+      // Handle mark all notifications as read
+      socket.on('mark_all_notifications_read', async () => {
+        try {
+          const notifModule = await import('../services/notification.service');
+          const count = await notifModule.default.markAllAsRead(userId);
+          socket.to(`user:${userId}`).emit('notification:all-read', { count });
+          socket.emit('notification:all-read:success', { count });
+        } catch (error) {
+          socket.emit('error', { message: 'Failed to mark all notifications as read' });
         }
       });
-    }
-  }
 
-  /**
-   * Send push notification to user
-   */
-  async sendPushNotification(
-    userId: string,
-    notification: {
-      type: NotificationType;
-      title: string;
-      message: string;
-      metadata?: any;
-    }
-  ): Promise<void> {
-    const userClients = this.clients.get(userId);
-    if (!userClients) return;
+      // Ping/pong
+      socket.on('ping', () => socket.emit('pong'));
 
-    const message = {
-      type: 'push_notification',
-      data: {
-        id: `push_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        ...notification,
-        timestamp: new Date(),
-        isRead: false,
-      },
-    };
-
-    userClients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        // Check if user is subscribed to this notification type
-        const subscriptions = (client as any).subscriptions || [];
-        if (subscriptions.length === 0 || subscriptions.includes(notification.type)) {
-          this.sendMessage(client, message);
-        }
-      }
+      socket.on('disconnect', () => {
+        console.log(`User ${userId} disconnected from Socket.io`);
+      });
     });
   }
 
+  // ─── Public API ────────────────────────────────────────────────
+
   /**
-   * Get connected users count
+   * Send notification to a specific user (all their connected tabs/devices)
    */
-  getConnectedUsersCount(): number {
-    return this.clients.size;
+  emitToUser(userId: string, event: string, data: any): void {
+    this.io.to(`user:${userId}`).emit(event, data);
   }
 
   /**
-   * Get user's active connections
+   * Send notification to all users with a specific role
    */
-  getUserConnections(userId: string): number {
-    return this.clients.get(userId)?.size || 0;
+  emitToRole(role: string, event: string, data: any): void {
+    this.io.to(`role:${role}`).emit(event, data);
+  }
+
+  /**
+   * Send notification to multiple roles
+   */
+  emitToRoles(roles: string[], event: string, data: any): void {
+    for (const role of roles) {
+      this.io.to(`role:${role}`).emit(event, data);
+    }
   }
 
   /**
    * Broadcast to all connected users
    */
-  async broadcastNotification(notification: {
-    type: NotificationType;
-    title: string;
-    message: string;
-    metadata?: any;
-  }): Promise<void> {
-    const message = {
-      type: 'broadcast_notification',
-      data: {
-        ...notification,
-        timestamp: new Date(),
-      },
-    };
+  emitToAll(event: string, data: any): void {
+    this.io.emit(event, data);
+  }
 
-    this.clients.forEach(userClients => {
-      userClients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          this.sendMessage(client, message);
-        }
-      });
+  /**
+   * Send push notification to a specific user (convenience wrapper)
+   */
+  async sendPushNotification(
+    userId: string,
+    notification: { type: string; title: string; message: string; metadata?: any }
+  ): Promise<void> {
+    this.emitToUser(userId, 'notification', {
+      id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...notification,
+      timestamp: new Date(),
+      isRead: false,
     });
   }
 
   /**
-   * Get WebSocket server instance
+   * Broadcast notification to all connected users
    */
-  getServer(): WebSocketServer {
-    return this.wss;
+  async broadcastNotification(notification: {
+    type: string;
+    title: string;
+    message: string;
+    metadata?: any;
+  }): Promise<void> {
+    this.emitToAll('notification', {
+      id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...notification,
+      timestamp: new Date(),
+      isRead: false,
+    });
+  }
+
+  /**
+   * Get count of connected users
+   */
+  getConnectedUsersCount(): number {
+    return this.io.sockets.sockets.size;
+  }
+
+  /**
+   * Get count of a specific user's active connections
+   */
+  getUserConnections(userId: string): number {
+    const room = this.io.sockets.adapter.rooms.get(`user:${userId}`);
+    return room?.size || 0;
+  }
+
+  /**
+   * Get the underlying Socket.io server instance
+   */
+  getServer(): Server {
+    return this.io;
   }
 }
 
-// Singleton instance
-let webSocketController: WebSocketController | null = null;
+// ─── Singleton ──────────────────────────────────────────────────
+
+let socketController: SocketController | null = null;
 
 /**
- * Initialize WebSocket controller
+ * Initialize Socket.io controller (call once after HTTP server is created)
  */
-export const initializeWebSocket = (): WebSocketController => {
-  if (!webSocketController) {
-    webSocketController = new WebSocketController();
+export const initializeSocket = (httpServer: HttpServer): SocketController => {
+  if (!socketController) {
+    socketController = new SocketController(httpServer);
   }
-  return webSocketController;
+  return socketController;
 };
 
 /**
- * Get WebSocket controller instance
+ * Get Socket.io controller instance
  */
-export const getWebSocketController = (): WebSocketController => {
-  if (!webSocketController) {
-    throw new Error('WebSocket controller not initialized. Call initializeWebSocket first.');
+export const getSocketController = (): SocketController => {
+  if (!socketController) {
+    throw new Error('Socket controller not initialized. Call initializeSocket(httpServer) first.');
   }
-  return webSocketController;
+  return socketController;
 };
 
-export default WebSocketController;
+// Backwards-compatible aliases for existing code
+export const initializeWebSocket = () => {
+  console.warn('initializeWebSocket() is deprecated — use initializeSocket(httpServer) instead');
+};
+export const getWebSocketController = getSocketController;
+
+export default SocketController;

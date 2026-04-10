@@ -185,9 +185,11 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
     where: { key: { in: ['companyName', 'companyAddress', 'companyPhone', 'companyEmail'] } },
   });
   const cfg: Record<string, string> = {};
-  settings.forEach((s: any) => { cfg[s.key] = s.value; });
+  settings.forEach((s: any) => {
+    cfg[s.key] = s.value;
+  });
 
-  const companyName = cfg.companyName || 'AgiliOSP';
+  const companyName = cfg.companyName || 'AgiloISP';
   const companyAddress = cfg.companyAddress || '';
   const companyPhone = cfg.companyPhone || '';
   const companyEmail = cfg.companyEmail || '';
@@ -204,9 +206,18 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
   y += 7;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  if (companyAddress) { doc.text(companyAddress, margin, y); y += 4; }
-  if (companyPhone) { doc.text(`Phone: ${companyPhone}`, margin, y); y += 4; }
-  if (companyEmail) { doc.text(`Email: ${companyEmail}`, margin, y); y += 4; }
+  if (companyAddress) {
+    doc.text(companyAddress, margin, y);
+    y += 4;
+  }
+  if (companyPhone) {
+    doc.text(`Phone: ${companyPhone}`, margin, y);
+    y += 4;
+  }
+  if (companyEmail) {
+    doc.text(`Email: ${companyEmail}`, margin, y);
+    y += 4;
+  }
 
   // ── Invoice Title (right side) ──
   doc.setFontSize(22);
@@ -218,8 +229,12 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
 
   // ── Status badge ──
   const statusColors: Record<string, [number, number, number]> = {
-    PAID: [16, 185, 129], SENT: [59, 130, 246], OVERDUE: [239, 68, 68],
-    DRAFT: [148, 163, 184], PARTIALLY_PAID: [245, 158, 11], CANCELLED: [148, 163, 184],
+    PAID: [16, 185, 129],
+    SENT: [59, 130, 246],
+    OVERDUE: [239, 68, 68],
+    DRAFT: [148, 163, 184],
+    PARTIALLY_PAID: [245, 158, 11],
+    CANCELLED: [148, 163, 184],
   };
   const sc = statusColors[invoice.status] || [148, 163, 184];
   doc.setFontSize(9);
@@ -255,18 +270,33 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
     doc.setFont('helvetica', 'bold');
     doc.text(cust.fullName || '—', margin, y);
     doc.setFont('helvetica', 'normal');
-    if (cust.email) { y += 5; doc.text(cust.email, margin, y); }
-    if (cust.phone) { y += 5; doc.text(cust.phone, margin, y); }
-    if (cust.address) { y += 5; doc.text(cust.address, margin, y); }
+    if (cust.email) {
+      y += 5;
+      doc.text(cust.email, margin, y);
+    }
+    if (cust.phone) {
+      y += 5;
+      doc.text(cust.phone, margin, y);
+    }
+    if (cust.address) {
+      y += 5;
+      doc.text(cust.address, margin, y);
+    }
     const cityLine = [cust.city, cust.state, cust.zipCode].filter(Boolean).join(', ');
-    if (cityLine) { y += 5; doc.text(cityLine, margin, y); }
+    if (cityLine) {
+      y += 5;
+      doc.text(cityLine, margin, y);
+    }
   }
 
   // Right column: invoice details
   let dy = y - (cust ? 20 : 0);
   if (dy < 0) dy = y - 20;
   const detailStartY = y - 20;
-  const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+  const fmtDate = (d: any) =>
+    d
+      ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+      : '—';
 
   const details = [
     ['Invoice Date:', fmtDate(invoice.invoiceDate)],
@@ -309,10 +339,14 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(9);
 
-  const fmt = (n: number) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmt = (n: number) =>
+    `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   (invoice.items || []).forEach((item: any) => {
-    if (y > 265) { doc.addPage(); y = 20; }
+    if (y > 265) {
+      doc.addPage();
+      y = 20;
+    }
     doc.text(item.description || '—', colDesc, y);
     doc.text(String(item.quantity), colQty, y, { align: 'right' });
     doc.text(fmt(item.unitPrice), colUnit, y, { align: 'right' });
@@ -370,7 +404,10 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
 
   // ── Payment History ──
   if (invoice.payments && invoice.payments.length > 0) {
-    if (y > 240) { doc.addPage(); y = 20; }
+    if (y > 240) {
+      doc.addPage();
+      y = 20;
+    }
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(30, 41, 59);
@@ -391,7 +428,10 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
     doc.setFontSize(9);
     doc.setTextColor(30, 41, 59);
     invoice.payments.forEach((p: any) => {
-      if (y > 270) { doc.addPage(); y = 20; }
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
       doc.text(fmtDate(p.paymentDate), margin + 2, y);
       doc.text((p.paymentMethod || '').replace(/_/g, ' '), margin + 45, y);
       doc.text(p.referenceNumber || '—', margin + 90, y);
@@ -403,7 +443,10 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
 
   // ── Notes / Terms / Footer ──
   if (invoice.notes || invoice.terms || invoice.footer) {
-    if (y > 250) { doc.addPage(); y = 20; }
+    if (y > 250) {
+      doc.addPage();
+      y = 20;
+    }
     doc.setDrawColor(226, 232, 240);
     doc.line(margin, y, pageW - margin, y);
     y += 6;
@@ -412,7 +455,8 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
 
     if (invoice.notes) {
       doc.setFont('helvetica', 'bold');
-      doc.text('Notes:', margin, y); y += 4;
+      doc.text('Notes:', margin, y);
+      y += 4;
       doc.setFont('helvetica', 'normal');
       const noteLines = doc.splitTextToSize(invoice.notes, pageW - margin * 2);
       doc.text(noteLines, margin, y);
@@ -420,7 +464,8 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
     }
     if (invoice.terms) {
       doc.setFont('helvetica', 'bold');
-      doc.text('Terms:', margin, y); y += 4;
+      doc.text('Terms:', margin, y);
+      y += 4;
       doc.setFont('helvetica', 'normal');
       const termLines = doc.splitTextToSize(invoice.terms, pageW - margin * 2);
       doc.text(termLines, margin, y);
@@ -436,7 +481,9 @@ export const generateInvoicePDF = async (invoice: any, res: Response) => {
   const pageH = doc.internal.pageSize.getHeight();
   doc.setFontSize(7);
   doc.setTextColor(148, 163, 184);
-  doc.text(`Generated on ${new Date().toLocaleString()}`, pageW / 2, pageH - 10, { align: 'center' });
+  doc.text(`Generated on ${new Date().toLocaleString()}`, pageW / 2, pageH - 10, {
+    align: 'center',
+  });
 
   // Send
   res.setHeader('Content-Type', 'application/pdf');

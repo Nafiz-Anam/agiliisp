@@ -6,7 +6,7 @@ import { sendSuccess, sendError } from '../utils/apiResponse';
 import { ErrorCode } from '../utils/apiResponse';
 import ApiError from '../utils/ApiError';
 import prisma from '../client';
-import { getWebSocketController } from '../controllers/websocket.controller';
+import { getSocketController } from '../controllers/websocket.controller';
 
 /**
  * Get push notification preferences
@@ -122,8 +122,8 @@ const getWebSocketStatus = catchAsync(async (req: Request, res: Response) => {
   const userId = req.params.userId as string;
 
   try {
-    const wsController = getWebSocketController();
-    const connections = wsController?.getUserConnections(userId) || 0;
+    const socketController = getSocketController();
+    const connections = socketController?.getUserConnections(userId) || 0;
     const isConnected = connections > 0;
 
     sendSuccess(
@@ -133,11 +133,10 @@ const getWebSocketStatus = catchAsync(async (req: Request, res: Response) => {
         isConnected,
         connections,
         serverInfo: {
-          connectedUsers: wsController?.getConnectedUsersCount() || 0,
-          wsPort: process.env.WS_PORT || '8080',
+          connectedUsers: socketController?.getConnectedUsersCount() || 0,
         },
       },
-      'WebSocket status retrieved'
+      'Socket.io status retrieved'
     );
   } catch (error) {
     console.error('Error getting WebSocket status:', error);

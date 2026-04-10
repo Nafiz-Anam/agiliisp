@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -128,7 +128,7 @@ export default function MyTicketsPage() {
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Create Support Ticket</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
+          <DialogBody className="space-y-4">
             <div><Label>Subject</Label><Input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Brief summary of your issue" /></div>
             <div><Label>Description</Label><textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe your issue in detail..." rows={4} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300" /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -154,7 +154,7 @@ export default function MyTicketsPage() {
             <Button onClick={handleCreate} disabled={saving} className="w-full bg-blue-500 hover:bg-blue-600 text-white">
               {saving ? "Creating..." : "Create Ticket"}
             </Button>
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
     </div>

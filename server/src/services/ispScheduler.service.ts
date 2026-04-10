@@ -2,7 +2,9 @@ import logger from '../config/logger';
 import invoiceService from './invoice.service';
 import customerService from './customer.service';
 import emailService from './email.service';
+import smsService from './sms.service';
 import prisma from '../client';
+import bandwidthAlertService from './bandwidthAlert.service';
 
 /**
  * Runs a task once per day at the specified hour (24h format).
@@ -39,7 +41,7 @@ const scheduleOverdueMarking = (): void => {
         dueDate: { lt: now },
       },
       include: {
-        customer: { select: { id: true, gracePeriod: true, username: true, email: true, fullName: true } },
+        customer: { select: { id: true, gracePeriod: true, username: true, email: true, fullName: true, phone: true } },
       },
     });
 
@@ -55,14 +57,15 @@ const scheduleOverdueMarking = (): void => {
           data: { status: 'OVERDUE' },
         });
         marked++;
-        // Send overdue reminder email
+        // Send overdue reminder (email + SMS)
         const daysOverdue = Math.floor((now.getTime() - invoice.dueDate.getTime()) / (1000 * 60 * 60 * 24));
         if (invoice.customer?.email) {
-          try {
-            await emailService.sendOverdueReminderEmail(
-              invoice.customer.email, invoice, invoice.customer.fullName, daysOverdue
-            );
-          } catch (err) { logger.error(`Failed to send overdue email for ${invoice.invoiceNumber}`, err); }
+          try { await emailService.sendOverdueReminderEmail(invoice.customer.email, invoice, invoice.customer.fullName, daysOverdue); }
+          catch (err) { logger.error(`Failed to send overdue email for ${invoice.invoiceNumber}`, err); }
+        }
+        if ((invoice.customer as any)?.phone) {
+          try { await smsService.sendOverdueReminderSms((invoice.customer as any).phone, invoice.invoiceNumber, Number(invoice.balanceDue), daysOverdue); }
+          catch {}
         }
       }
     }
@@ -154,7 +157,7 @@ const scheduleAutoSuspend = (): void => {
           },
         },
       },
-      select: { id: true, autoSuspendDays: true, username: true, email: true, fullName: true },
+      select: { id: true, autoSuspendDays: true, username: true, email: true, fullName: true, phone: true },
     });
 
     let suspended = 0;
@@ -181,15 +184,23 @@ const scheduleAutoSuspend = (): void => {
           await customerService.suspendCustomer(customer.id, 'Auto-suspended: payment overdue');
           suspended++;
           logger.info(`ISP Scheduler: Auto-suspended customer ${customer.username}`);
-          // Send suspension email
+          // Send suspension notifications (email + SMS)
           if (customer.email) {
             try { await emailService.sendServiceSuspendedEmail(customer.email, customer.fullName, 'Payment overdue — auto-suspended'); }
             catch (err) { logger.error(`Failed to send suspension email to ${customer.username}`, err); }
           }
-        } else if (daysUntilSuspend <= 3 && daysUntilSuspend > 0 && customer.email) {
+          if ((customer as any).phone) {
+            try { await smsService.sendServiceSuspendedSms((customer as any).phone); } catch {}
+          }
+        } else if (daysUntilSuspend <= 3 && daysUntilSuspend > 0) {
           // Send suspension warning (3 days or less before suspend)
-          try { await emailService.sendSuspensionWarningEmail(customer.email, customer.fullName, daysUntilSuspend, oldestOverdue); }
-          catch (err) { logger.error(`Failed to send suspension warning to ${customer.username}`, err); }
+          if (customer.email) {
+            try { await emailService.sendSuspensionWarningEmail(customer.email, customer.fullName, daysUntilSuspend, oldestOverdue); }
+            catch (err) { logger.error(`Failed to send suspension warning to ${customer.username}`, err); }
+          }
+          if ((customer as any).phone) {
+            try { await smsService.sendSuspensionWarningSms((customer as any).phone, daysUntilSuspend); } catch {}
+          }
         }
       } catch (err) {
         logger.error(`ISP Scheduler: Failed to auto-suspend customer ${customer.username}`, err);
@@ -200,11 +211,139 @@ const scheduleAutoSuspend = (): void => {
   });
 };
 
+/**
+ * Prepaid expiry: disconnect customers whose prepaid package has expired.
+ * Also sends reminder 3 days and 1 day before expiry.
+ * Runs daily at 4 AM.
+ */
+const schedulePrepaidExpiry = (): void => {
+  scheduleDaily(4, async () => {
+    logger.info('ISP Scheduler: Running prepaid expiry job...');
+    const now = new Date();
+    const threeDaysFromNow = new Date(now);
+    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
+    const oneDayFromNow = new Date(now);
+    oneDayFromNow.setDate(oneDayFromNow.getDate() + 1);
+
+    // 1. Suspend expired prepaid customers
+    const db = prisma as any;
+    let expired: any[] = [];
+    try {
+      expired = await db.ispCustomer.findMany({
+        where: {
+          billingType: 'PREPAID',
+          status: 'ACTIVE',
+          expiryDate: { lt: now },
+        },
+        select: { id: true, username: true, email: true, fullName: true, phone: true, expiryDate: true },
+      });
+    } catch { /* billingType field may not exist yet */ }
+
+    let disconnected = 0;
+    for (const customer of expired) {
+      try {
+        await customerService.suspendCustomer(customer.id, 'Prepaid package expired');
+        disconnected++;
+        if (customer.email) {
+          try { await emailService.sendServiceSuspendedEmail(customer.email, customer.fullName, 'Prepaid package expired'); } catch {}
+        }
+        if (customer.phone) {
+          try { await smsService.sendServiceSuspendedSms(customer.phone); } catch {}
+        }
+      } catch (err) {
+        logger.error(`Failed to disconnect expired prepaid customer ${customer.username}`, err);
+      }
+    }
+
+    // 2. Send expiry reminders (3 days and 1 day before)
+    let reminded = 0;
+    try {
+      const expiringSoon = await db.ispCustomer.findMany({
+        where: {
+          billingType: 'PREPAID',
+          status: 'ACTIVE',
+          expiryDate: { gte: now, lte: threeDaysFromNow },
+        },
+        select: { id: true, username: true, email: true, fullName: true, phone: true, expiryDate: true },
+      });
+
+      for (const customer of expiringSoon) {
+        const daysLeft = Math.ceil(((customer.expiryDate as Date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysLeft === 3 || daysLeft === 1) {
+          const expiryStr = (customer.expiryDate as Date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+          if (customer.phone) {
+            try { await smsService.sendExpiryReminderSms(customer.phone, daysLeft, expiryStr); reminded++; } catch {}
+          }
+        }
+      }
+    } catch { /* billingType may not exist */ }
+
+    logger.info(`ISP Scheduler: Prepaid expiry — ${disconnected} disconnected, ${reminded} reminded`);
+  });
+};
+
+/**
+ * Compliance log cleanup: delete records older than 180 days (6-month BTRC retention).
+ * Runs daily at 5 AM.
+ */
+const scheduleComplianceCleanup = (): void => {
+  scheduleDaily(5, async () => {
+    logger.info('ISP Scheduler: Running compliance log cleanup...');
+    const db = prisma as any;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 180);
+
+    const [sessions, nat, auth] = await Promise.all([
+      db.sessionLog.deleteMany({ where: { timestamp: { lt: cutoff } } }),
+      db.natLog.deleteMany({ where: { timestamp: { lt: cutoff } } }),
+      db.authenticationLog.deleteMany({ where: { timestamp: { lt: cutoff } } }),
+    ]);
+
+    logger.info(`ISP Scheduler: Compliance cleanup — deleted ${sessions.count} session, ${nat.count} NAT, ${auth.count} auth logs older than 180 days`);
+  });
+};
+
 const startISPSchedulers = (): void => {
   logger.info('ISP Scheduler: Starting automation jobs...');
   scheduleOverdueMarking();
   scheduleMonthlyBilling();
   scheduleAutoSuspend();
+  schedulePrepaidExpiry();
+  scheduleComplianceCleanup();
+
+  // Ticket escalation check every 30 minutes
+  setInterval(async () => {
+    try {
+      const db = prisma as any;
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const criticalTickets = await db.supportTicket.findMany({
+        where: { priority: 'CRITICAL', status: { in: ['OPEN', 'IN_PROGRESS'] }, openedAt: { lt: twoHoursAgo } },
+        include: { customer: { select: { fullName: true } } },
+      });
+      if (criticalTickets.length > 0) {
+        const managers = await prisma.user.findMany({ where: { role: { in: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] as any }, isActive: true } });
+        for (const manager of managers) {
+          try {
+            const notifModule = await import('./notification.service');
+            notifModule.default.createNotification(manager.id, 'SECURITY_ALERT' as any, `${criticalTickets.length} Critical Ticket(s) Unresolved`, `Critical tickets open > 2 hours need attention`);
+          } catch {}
+        }
+        logger.info(`Ticket escalation: ${criticalTickets.length} critical tickets escalated to ${managers.length} managers`);
+      }
+    } catch (err) { logger.error('Ticket escalation check failed', err); }
+  }, 30 * 60 * 1000);
+
+  // Bandwidth quota check every 6 hours
+  setInterval(async () => {
+    try {
+      await bandwidthAlertService.checkAllCustomerQuotas();
+      await bandwidthAlertService.resolveStaleAlerts();
+    } catch (err) { logger.error('Bandwidth alert check failed', err); }
+  }, 6 * 60 * 60 * 1000);
+  // Run initial check after 2 minutes
+  setTimeout(() => {
+    bandwidthAlertService.checkAllCustomerQuotas().catch(() => {});
+  }, 120000);
 };
 
 export default { startISPSchedulers };

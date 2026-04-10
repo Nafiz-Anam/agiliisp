@@ -3,6 +3,7 @@ import { RouterLog, RouterLogType, LogSeverity, Prisma } from '@prisma/client';
 import ApiError from '../utils/ApiError';
 import prisma from '../client';
 import logger from '../config/logger';
+import complianceLogService from './complianceLog.service';
 
 // MikroTik log entry from API
 interface MikrotikLogEntry {
@@ -139,6 +140,36 @@ class RouterLogService {
       });
       if (customer) {
         customerId = customer.id;
+      }
+    }
+
+    // ── Compliance logging: capture PPPoE events ──
+    if (logType === RouterLogType.PPPOE && username) {
+      const ipMatch = logEntry.message.match(/(\d+\.\d+\.\d+\.\d+)/);
+      const macMatch = logEntry.message.match(/([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}/);
+      const ip = ipMatch?.[0] || undefined;
+      const mac = macMatch?.[0] || undefined;
+
+      const router = await prisma.router.findUnique({ where: { id: routerId }, select: { host: true } });
+      const nasIp = router?.host || undefined;
+
+      if (message.includes('logged in') || message.includes('connected')) {
+        complianceLogService.logSession({ customerId, username, routerId, eventType: 'CONNECT', ipAddress: ip, macAddress: mac, nasIp, service: 'pppoe' }).catch(() => {});
+        complianceLogService.logAuth({ username, customerId, routerId, eventType: 'LOGIN_SUCCESS', ipAddress: ip, macAddress: mac, nasIp, service: 'pppoe' }).catch(() => {});
+        if (ip) complianceLogService.logNat({ customerId, username, assignedIp: ip, macAddress: mac, routerId, action: 'ASSIGN' }).catch(() => {});
+      } else if (message.includes('logged out') || message.includes('disconnected') || message.includes('disconnecting')) {
+        const durationMatch = logEntry.message.match(/(\d+)h(\d+)m(\d+)s/);
+        const duration = durationMatch ? parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseInt(durationMatch[3]) : undefined;
+        const bytesInMatch = logEntry.message.match(/(\d+)\s*bytes?\s*in/i);
+        const bytesOutMatch = logEntry.message.match(/(\d+)\s*bytes?\s*out/i);
+        complianceLogService.logSession({ customerId, username, routerId, eventType: 'DISCONNECT', ipAddress: ip, macAddress: mac, nasIp, service: 'pppoe', sessionDuration: duration, downloadBytes: bytesInMatch ? parseInt(bytesInMatch[1]) : undefined, uploadBytes: bytesOutMatch ? parseInt(bytesOutMatch[1]) : undefined, disconnectReason: 'user-request' }).catch(() => {});
+        if (ip) complianceLogService.logNat({ customerId, username, assignedIp: ip, macAddress: mac, routerId, action: 'RELEASE' }).catch(() => {});
+      } else if (message.includes('timeout')) {
+        complianceLogService.logSession({ customerId, username, routerId, eventType: 'TIMEOUT', ipAddress: ip, macAddress: mac, nasIp, service: 'pppoe', disconnectReason: 'session-timeout' }).catch(() => {});
+        complianceLogService.logAuth({ username, customerId, routerId, eventType: 'SESSION_TIMEOUT', ipAddress: ip, macAddress: mac, nasIp, service: 'pppoe' }).catch(() => {});
+      } else if (message.includes('auth') && (message.includes('fail') || message.includes('error'))) {
+        complianceLogService.logSession({ customerId, username, routerId, eventType: 'AUTH_FAIL', macAddress: mac, nasIp, service: 'pppoe' }).catch(() => {});
+        complianceLogService.logAuth({ username, customerId, routerId, eventType: 'LOGIN_FAIL', macAddress: mac, nasIp, service: 'pppoe', failReason: logEntry.message }).catch(() => {});
       }
     }
 

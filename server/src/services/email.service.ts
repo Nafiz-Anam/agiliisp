@@ -431,8 +431,12 @@ export const sendPasswordResetOtp = async (to: string, otp: string, name: string
 // Billing & Invoice Emails
 // ═══════════════════════════════════════════════════════
 
-const fmt = (n: number) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
+const fmt = (n: number) =>
+  `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtDate = (d: any) =>
+  d
+    ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    : '—';
 
 const billingWrapper = (title: string, body: string) => `
 <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#1e293b;">
@@ -446,14 +450,19 @@ const billingWrapper = (title: string, body: string) => `
   </div>
 </div>`;
 
-const sendInvoiceEmail = async (to: string, invoice: any, companyName: string = 'AgiliOSP') => {
-  const items = (invoice.items || []).map((item: any) =>
-    `<tr><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;">${item.description}</td>
+const sendInvoiceEmail = async (to: string, invoice: any, companyName: string = 'AgiloISP') => {
+  const items = (invoice.items || [])
+    .map(
+      (item: any) =>
+        `<tr><td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;">${item.description}</td>
      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:center;">${item.quantity}</td>
      <td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">${fmt(item.totalPrice)}</td></tr>`
-  ).join('');
+    )
+    .join('');
 
-  const html = billingWrapper(`Invoice ${invoice.invoiceNumber}`, `
+  const html = billingWrapper(
+    `Invoice ${invoice.invoiceNumber}`,
+    `
     <p>Dear <strong>${invoice.customer?.fullName || 'Customer'}</strong>,</p>
     <p>A new invoice has been generated for your account.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
@@ -471,14 +480,27 @@ const sendInvoiceEmail = async (to: string, invoice: any, companyName: string = 
       ${Number(invoice.balanceDue) > 0 ? `<p style="font-size:16px;font-weight:bold;color:#ef4444;margin:4px 0;">Balance Due: ${fmt(invoice.balanceDue)}</p>` : ''}
     </div>
     <p style="margin-top:16px;font-size:13px;color:#64748b;">Please ensure payment is made by <strong>${fmtDate(invoice.dueDate)}</strong> to avoid service interruption.</p>
-  `);
+  `
+  );
 
   const text = `Invoice ${invoice.invoiceNumber} - Total: ${fmt(invoice.totalAmount)} - Due: ${fmtDate(invoice.dueDate)}`;
-  return sendEmail(to, `Invoice ${invoice.invoiceNumber} — ${fmt(invoice.totalAmount)} Due`, text, html);
+  return sendEmail(
+    to,
+    `Invoice ${invoice.invoiceNumber} — ${fmt(invoice.totalAmount)} Due`,
+    text,
+    html
+  );
 };
 
-const sendPaymentConfirmationEmail = async (to: string, payment: any, invoice: any, customerName: string) => {
-  const html = billingWrapper('Payment Received', `
+const sendPaymentConfirmationEmail = async (
+  to: string,
+  payment: any,
+  invoice: any,
+  customerName: string
+) => {
+  const html = billingWrapper(
+    'Payment Received',
+    `
     <p>Dear <strong>${customerName}</strong>,</p>
     <p>We have received your payment. Thank you!</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
@@ -490,14 +512,22 @@ const sendPaymentConfirmationEmail = async (to: string, payment: any, invoice: a
       <tr><td style="padding:8px;font-size:13px;color:#64748b;">Remaining Balance</td><td style="padding:8px;font-weight:bold;">${fmt(invoice?.balanceDue || 0)}</td></tr>
     </table>
     ${Number(invoice?.balanceDue) <= 0 ? '<p style="color:#10b981;font-weight:bold;">✓ This invoice is now fully paid.</p>' : ''}
-  `);
+  `
+  );
 
   const text = `Payment of ${fmt(payment.amount)} received for Invoice ${invoice?.invoiceNumber || ''}`;
   return sendEmail(to, `Payment Confirmed — ${fmt(payment.amount)}`, text, html);
 };
 
-const sendOverdueReminderEmail = async (to: string, invoice: any, customerName: string, daysOverdue: number) => {
-  const html = billingWrapper('Payment Overdue', `
+const sendOverdueReminderEmail = async (
+  to: string,
+  invoice: any,
+  customerName: string,
+  daysOverdue: number
+) => {
+  const html = billingWrapper(
+    'Payment Overdue',
+    `
     <p>Dear <strong>${customerName}</strong>,</p>
     <p style="color:#ef4444;font-weight:bold;">Your invoice ${invoice.invoiceNumber} is ${daysOverdue} day${daysOverdue > 1 ? 's' : ''} overdue.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
@@ -506,14 +536,27 @@ const sendOverdueReminderEmail = async (to: string, invoice: any, customerName: 
       <tr style="background:#fef2f2;"><td style="padding:8px;font-size:13px;color:#64748b;">Balance Due</td><td style="padding:8px;font-weight:bold;color:#ef4444;font-size:18px;">${fmt(invoice.balanceDue)}</td></tr>
     </table>
     <p style="font-size:13px;color:#64748b;">Please make payment immediately to avoid service suspension.</p>
-  `);
+  `
+  );
 
   const text = `Invoice ${invoice.invoiceNumber} is ${daysOverdue} days overdue. Balance: ${fmt(invoice.balanceDue)}`;
-  return sendEmail(to, `⚠ Overdue: Invoice ${invoice.invoiceNumber} — ${fmt(invoice.balanceDue)}`, text, html);
+  return sendEmail(
+    to,
+    `⚠ Overdue: Invoice ${invoice.invoiceNumber} — ${fmt(invoice.balanceDue)}`,
+    text,
+    html
+  );
 };
 
-const sendSuspensionWarningEmail = async (to: string, customerName: string, daysUntilSuspend: number, invoice: any) => {
-  const html = billingWrapper('Service Suspension Warning', `
+const sendSuspensionWarningEmail = async (
+  to: string,
+  customerName: string,
+  daysUntilSuspend: number,
+  invoice: any
+) => {
+  const html = billingWrapper(
+    'Service Suspension Warning',
+    `
     <p>Dear <strong>${customerName}</strong>,</p>
     <p style="color:#f59e0b;font-weight:bold;">Your service will be suspended in ${daysUntilSuspend} day${daysUntilSuspend > 1 ? 's' : ''} due to unpaid invoice.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
@@ -521,33 +564,45 @@ const sendSuspensionWarningEmail = async (to: string, customerName: string, days
       <tr><td style="padding:8px;font-size:13px;color:#64748b;">Balance Due</td><td style="padding:8px;font-weight:bold;color:#ef4444;font-size:18px;">${fmt(invoice.balanceDue)}</td></tr>
     </table>
     <p style="font-size:13px;color:#64748b;">Please pay your outstanding balance to continue enjoying uninterrupted service.</p>
-  `);
+  `
+  );
 
   const text = `Warning: Your service will be suspended in ${daysUntilSuspend} days. Invoice ${invoice.invoiceNumber} — Balance: ${fmt(invoice.balanceDue)}`;
-  return sendEmail(to, `⚠ Suspension Warning — ${daysUntilSuspend} day${daysUntilSuspend > 1 ? 's' : ''} remaining`, text, html);
+  return sendEmail(
+    to,
+    `⚠ Suspension Warning — ${daysUntilSuspend} day${daysUntilSuspend > 1 ? 's' : ''} remaining`,
+    text,
+    html
+  );
 };
 
 const sendServiceSuspendedEmail = async (to: string, customerName: string, reason: string) => {
-  const html = billingWrapper('Service Suspended', `
+  const html = billingWrapper(
+    'Service Suspended',
+    `
     <p>Dear <strong>${customerName}</strong>,</p>
     <p style="color:#ef4444;font-weight:bold;">Your internet service has been suspended.</p>
     <p><strong>Reason:</strong> ${reason}</p>
     <p style="font-size:13px;color:#64748b;">To restore your service, please clear your outstanding balance. Once payment is confirmed, your service will be reactivated automatically.</p>
-  `);
+  `
+  );
 
   const text = `Your service has been suspended. Reason: ${reason}. Please pay your outstanding balance to restore service.`;
   return sendEmail(to, 'Service Suspended — Action Required', text, html);
 };
 
 const sendServiceReactivatedEmail = async (to: string, customerName: string) => {
-  const html = billingWrapper('Service Reactivated', `
+  const html = billingWrapper(
+    'Service Reactivated',
+    `
     <p>Dear <strong>${customerName}</strong>,</p>
     <p style="color:#10b981;font-weight:bold;">✓ Your internet service has been reactivated!</p>
     <p>Thank you for your payment. Your connection should be restored within a few minutes.</p>
-  `);
+  `
+  );
 
   const text = `Your service has been reactivated. Thank you for your payment.`;
-  return sendEmail(to, '✓ Service Reactivated — You\'re Back Online', text, html);
+  return sendEmail(to, "✓ Service Reactivated — You're Back Online", text, html);
 };
 
 export const verifySmtpConnection = async () => {

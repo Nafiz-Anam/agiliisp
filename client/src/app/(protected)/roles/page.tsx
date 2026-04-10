@@ -21,6 +21,8 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogBody,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -578,7 +580,7 @@ export default function RolesPermissionsPage() {
                         </DialogTitle>
                     </DialogHeader>
 
-                    <div className="space-y-5 mt-2">
+                    <DialogBody className="space-y-5">
                         {/* Name */}
                         <div className="space-y-2">
                             <Label htmlFor="role-name">Name</Label>
@@ -728,27 +730,26 @@ export default function RolesPermissionsPage() {
                             </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center justify-end gap-3 pt-2">
-                            <Button
-                                variant="outline"
-                                onClick={closeDialog}
-                                disabled={saving}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="bg-blue-500 hover:bg-blue-600 text-white"
-                            >
-                                {saving ? (
-                                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                                ) : null}
-                                {editingRole ? "Save Changes" : "Create Role"}
-                            </Button>
-                        </div>
-                    </div>
+                    </DialogBody>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={closeDialog}
+                            disabled={saving}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="bg-blue-500 hover:bg-blue-600 text-white"
+                        >
+                            {saving ? (
+                                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                            ) : null}
+                            {editingRole ? "Save Changes" : "Create Role"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

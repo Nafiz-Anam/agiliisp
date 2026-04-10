@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SortableHeader } from "@/components/ui/sortable-header";
@@ -23,6 +23,8 @@ const EMPTY_FORM = {
   routerId: "",
   downloadSpeed: 10,
   uploadSpeed: 5,
+  bdixDownloadSpeed: "",
+  bdixUploadSpeed: "",
   price: 0,
   costPrice: "",
   dataLimit: "",
@@ -94,6 +96,8 @@ export default function PackagesPage() {
       routerId: p.routerId,
       downloadSpeed: p.downloadSpeed,
       uploadSpeed: p.uploadSpeed,
+      bdixDownloadSpeed: (p as any).bdixDownloadSpeed != null ? String((p as any).bdixDownloadSpeed) : "",
+      bdixUploadSpeed: (p as any).bdixUploadSpeed != null ? String((p as any).bdixUploadSpeed) : "",
       price: p.price,
       costPrice: p.costPrice != null ? String(p.costPrice) : "",
       dataLimit: p.dataLimit != null ? String(p.dataLimit) : "",
@@ -117,6 +121,8 @@ export default function PackagesPage() {
         routerId: form.routerId,
         downloadSpeed: Number(form.downloadSpeed),
         uploadSpeed: Number(form.uploadSpeed),
+        ...(form.bdixDownloadSpeed && { bdixDownloadSpeed: Number(form.bdixDownloadSpeed) }),
+        ...(form.bdixUploadSpeed && { bdixUploadSpeed: Number(form.bdixUploadSpeed) }),
         price: Number(form.price),
         priority: Number(form.priority),
         isActive: form.isActive,
@@ -230,6 +236,9 @@ export default function PackagesPage() {
                         <span className="flex items-center gap-0.5 text-emerald-600"><ArrowDown className="h-3 w-3" />{p.downloadSpeed} Mbps</span>
                         <span className="text-slate-300">|</span>
                         <span className="flex items-center gap-0.5 text-blue-600"><ArrowUp className="h-3 w-3" />{p.uploadSpeed} Mbps</span>
+                        {(p as any).bdixDownloadSpeed && (
+                          <span className="text-[10px] text-slate-400 ml-1">(BDIX: {(p as any).bdixDownloadSpeed}/{(p as any).bdixUploadSpeed})</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 text-[13px]">
@@ -284,7 +293,8 @@ export default function PackagesPage() {
           <DialogHeader>
             <DialogTitle>{editPkg ? "Edit Package" : "New Package"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmit}>
+            <DialogBody className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2">
                 <Label>Router *</Label>
@@ -310,6 +320,14 @@ export default function PackagesPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="ul">Upload Speed (Mbps) *</Label>
                 <Input id="ul" type="number" value={form.uploadSpeed} onChange={(e) => setForm((f) => ({ ...f, uploadSpeed: Number(e.target.value) }))} required min={1} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bdixDl">BDIX Download (Mbps)</Label>
+                <Input id="bdixDl" type="number" value={form.bdixDownloadSpeed} onChange={(e) => setForm((f) => ({ ...f, bdixDownloadSpeed: e.target.value }))} min={1} placeholder="Local speed" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bdixUl">BDIX Upload (Mbps)</Label>
+                <Input id="bdixUl" type="number" value={form.bdixUploadSpeed} onChange={(e) => setForm((f) => ({ ...f, bdixUploadSpeed: e.target.value }))} min={1} placeholder="Local speed" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="price">Price ($) *</Label>
@@ -348,12 +366,13 @@ export default function PackagesPage() {
                 <Label htmlFor="isPublic" className="cursor-pointer">Public (visible to resellers)</Label>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            </DialogBody>
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
               <Button type="submit" disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {saving ? "Saving..." : editPkg ? "Update" : "Create Package"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -363,7 +382,7 @@ export default function PackagesPage() {
         <Dialog open={!!viewPkg} onOpenChange={() => setViewPkg(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>Package Details</DialogTitle></DialogHeader>
-            <div className="space-y-3 pt-2">
+            <DialogBody className="space-y-3">
               <DetailRow label="Name" value={viewPkg.name} />
               <DetailRow label="Router" value={viewPkg.router.name} />
               <DetailRow label="Download" value={`${viewPkg.downloadSpeed} Mbps`} />
@@ -377,7 +396,7 @@ export default function PackagesPage() {
               <DetailRow label="Customers" value={String(viewPkg._count?.customers ?? "—")} />
               <DetailRow label="Active" value={viewPkg.isActive ? "Yes" : "No"} />
               <DetailRow label="Public" value={viewPkg.isPublic ? "Yes" : "No"} />
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}

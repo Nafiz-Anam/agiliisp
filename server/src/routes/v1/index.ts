@@ -27,6 +27,16 @@ import ispReportRoute from './isp/report.route';
 import ispMonitoringRoute from './isp/monitoring.route';
 import ispExpenseRoute from './isp/expense.route';
 import customerPortalRoute from './customerPortal.route';
+import ispZoneRoute from './isp/zone.route';
+import ispCollectorRoute from './isp/collector.route';
+import ispMobilePaymentRoute from './isp/mobilePayment.route';
+import ispBtrcRoute from './isp/btrc.route';
+import ispSubnetRoute from './isp/subnet.route';
+import ispSupplierRoute from './isp/supplier.route';
+import ispComplianceLogRoute from './isp/complianceLog.route';
+import ispAnnouncementRoute from './isp/announcement.route';
+import ispBulkMessageRoute from './isp/bulkMessage.route';
+import ispPayoutRoute from './isp/payout.route';
 import config from '../../config/config';
 
 const router = express.Router();
@@ -139,6 +149,46 @@ const defaultRoutes = [
   {
     path: '/isp/expenses',
     route: ispExpenseRoute,
+  },
+  {
+    path: '/isp/zones',
+    route: ispZoneRoute,
+  },
+  {
+    path: '/isp/collectors',
+    route: ispCollectorRoute,
+  },
+  {
+    path: '/isp/mobile-payments',
+    route: ispMobilePaymentRoute,
+  },
+  {
+    path: '/isp/btrc',
+    route: ispBtrcRoute,
+  },
+  {
+    path: '/isp/subnets',
+    route: ispSubnetRoute,
+  },
+  {
+    path: '/isp/suppliers',
+    route: ispSupplierRoute,
+  },
+  {
+    path: '/isp/compliance-logs',
+    route: ispComplianceLogRoute,
+  },
+  {
+    path: '/isp/announcements',
+    route: ispAnnouncementRoute,
+  },
+  {
+    path: '/isp/bulk-messages',
+    route: ispBulkMessageRoute,
+  },
+  {
+    path: '/isp/payouts',
+    route: ispPayoutRoute,
   },
 ];
 

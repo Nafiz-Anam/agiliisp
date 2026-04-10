@@ -1,4 +1,4 @@
-# AgiliOSP - Full stack (PostgreSQL + Redis + API + Client)
+# AgiloISP - Full stack (PostgreSQL + Redis + API + Client)
 # Production: pulled from Docker Hub, deployed via CI/CD
 
 services:
@@ -47,6 +47,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - uploads_data:/usr/src/node-app/uploads
     command: sh -c "node node_modules/prisma/build/index.js db push && node build/prisma/seed.js; node build/src/index.js"
 
   client:
@@ -63,3 +65,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:

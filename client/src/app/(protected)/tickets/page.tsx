@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { SortableHeader } from "@/components/ui/sortable-header";
 import api from "@/lib/api";
@@ -297,7 +297,7 @@ export default function TicketsPage() {
         <Dialog open={!!viewTicket} onOpenChange={() => setViewTicket(null)}>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Ticket {viewTicket.ticketNumber}</DialogTitle></DialogHeader>
-            <div className="space-y-3 pt-2">
+            <DialogBody className="space-y-3">
               <DetailRow label="Subject" value={viewTicket.subject} />
               <DetailRow label="Customer" value={`${viewTicket.customer.fullName} (${viewTicket.customer.username})`} />
               <DetailRow label="Status" value={<span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${STATUS_STYLES[viewTicket.status]}`}>{STATUS_ICON[viewTicket.status]}{viewTicket.status.replace("_", " ")}</span>} />
@@ -309,7 +309,7 @@ export default function TicketsPage() {
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Description</p>
                 <p className="text-sm text-slate-600 whitespace-pre-wrap">{viewTicket.description}</p>
               </div>
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}
@@ -318,7 +318,7 @@ export default function TicketsPage() {
       <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>New Support Ticket</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
+          <DialogBody className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer *</Label>
               <select
@@ -379,13 +379,13 @@ export default function TicketsPage() {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
-              <Button onClick={handleCreateTicket} disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
-                {saving ? "Creating..." : "Create Ticket"}
-              </Button>
-            </div>
-          </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
+            <Button onClick={handleCreateTicket} disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
+              {saving ? "Creating..." : "Create Ticket"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -394,18 +394,18 @@ export default function TicketsPage() {
         <Dialog open={!!updateStatus} onOpenChange={() => setUpdateStatus(null)}>
           <DialogContent className="max-w-sm">
             <DialogHeader><DialogTitle>Update Ticket Status</DialogTitle></DialogHeader>
-            <div className="space-y-4 pt-2">
+            <DialogBody>
               <p className="text-sm text-slate-600">
                 Mark ticket <span className="font-mono font-medium">{updateStatus.ticket.ticketNumber}</span> as{" "}
                 <span className={`font-bold px-1.5 py-0.5 rounded text-[11px] ${STATUS_STYLES[updateStatus.status]}`}>
                   {updateStatus.status.replace("_", " ")}
                 </span>?
               </p>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setUpdateStatus(null)}>Cancel</Button>
-                <Button onClick={handleStatusUpdate} className="bg-blue-500 hover:bg-blue-600 text-white">Confirm</Button>
-              </div>
-            </div>
+            </DialogBody>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setUpdateStatus(null)}>Cancel</Button>
+              <Button onClick={handleStatusUpdate} className="bg-blue-500 hover:bg-blue-600 text-white">Confirm</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}

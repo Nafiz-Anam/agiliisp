@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +26,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "invoices" | "tickets" | "traffic" | "logs";
+type Tab = "overview" | "invoices" | "tickets" | "traffic" | "documents" | "logs";
 
 const STATUS_STYLES = {
   customer: {
@@ -360,6 +360,7 @@ export default function CustomerDetailPage() {
             { key: "invoices", label: "Invoices", icon: FileText },
             { key: "tickets", label: "Tickets", icon: HeadphonesIcon },
             { key: "traffic", label: "Traffic", icon: BarChart2 },
+            { key: "documents", label: "Documents", icon: Upload },
           ] as { key: Tab; label: string; icon: React.ElementType }[]).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -609,13 +610,18 @@ export default function CustomerDetailPage() {
         </div>
       )}
 
+      {/* Tab: Documents */}
+      {tab === "documents" && customer && (
+        <CustomerDocuments customerId={customer.id} customer={customer} onUpdate={fetchCustomer} />
+      )}
+
       {/* Suspend Dialog */}
       <Dialog open={showSuspendDialog} onOpenChange={setShowSuspendDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Suspend Customer</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
+          <DialogBody className="space-y-4">
             <p className="text-sm text-slate-600">This will disable <strong>{customer.username}</strong> on the router immediately.</p>
             <div className="space-y-1.5">
               <Label htmlFor="suspendReason">Reason</Label>
@@ -627,17 +633,17 @@ export default function CustomerDetailPage() {
                 rows={3}
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowSuspendDialog(false)}>Cancel</Button>
-              <Button
-                onClick={handleSuspend}
-                disabled={actionLoading === "suspend"}
-                className="bg-amber-500 hover:bg-amber-600 text-white"
-              >
-                {actionLoading === "suspend" ? "Suspending..." : "Suspend"}
-              </Button>
-            </div>
-          </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSuspendDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleSuspend}
+              disabled={actionLoading === "suspend"}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {actionLoading === "suspend" ? "Suspending..." : "Suspend"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -647,7 +653,8 @@ export default function CustomerDetailPage() {
           <DialogHeader>
             <DialogTitle>New Invoice — {customer.fullName}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreateInvoice} className="space-y-4 pt-2">
+          <form onSubmit={handleCreateInvoice}>
+            <DialogBody className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="dueDate">Due Date *</Label>
               <Input id="dueDate" type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm((f) => ({ ...f, dueDate: e.target.value }))} required />
@@ -702,12 +709,13 @@ export default function CustomerDetailPage() {
               <Label htmlFor="invNotes">Notes</Label>
               <Textarea id="invNotes" value={invoiceForm.notes} onChange={(e) => setInvoiceForm((f) => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Optional notes..." />
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            </DialogBody>
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowInvoiceForm(false)}>Cancel</Button>
               <Button type="submit" disabled={savingInvoice} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {savingInvoice ? "Creating..." : "Create Invoice"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -717,7 +725,8 @@ export default function CustomerDetailPage() {
         <Dialog open={!!payInvoice} onOpenChange={() => setPayInvoice(null)}>
           <DialogContent className="max-w-sm">
             <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
-            <form onSubmit={handleRecordPayment} className="space-y-4 pt-2">
+            <form onSubmit={handleRecordPayment}>
+              <DialogBody className="space-y-4">
               <p className="text-sm text-slate-500">Invoice: <span className="font-mono font-medium text-slate-700">{payInvoice.invoiceNumber}</span></p>
               <div className="space-y-1.5">
                 <Label>Amount ($) *</Label>
@@ -738,12 +747,13 @@ export default function CustomerDetailPage() {
                 <Label>Reference</Label>
                 <Input value={paymentForm.reference} onChange={(e) => setPaymentForm((f) => ({ ...f, reference: e.target.value }))} placeholder="Transaction ID..." />
               </div>
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              </DialogBody>
+              <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setPayInvoice(null)}>Cancel</Button>
                 <Button type="submit" disabled={savingPayment} className="bg-emerald-500 hover:bg-emerald-600 text-white">
                   {savingPayment ? "Recording..." : "Record Payment"}
                 </Button>
-              </div>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -757,7 +767,7 @@ function MiniStat({ label, value, sub, color }: { label: string; value: string |
     blue: "bg-blue-50 border-blue-100",
     red: "bg-red-50 border-red-100",
     purple: "bg-purple-50 border-purple-100",
-    blue: "bg-blue-50 border-blue-100",
+    emerald: "bg-emerald-50 border-emerald-100",
     slate: "bg-slate-50 border-slate-100",
   };
   return (
@@ -797,4 +807,139 @@ function formatBytes(bytes: string, short = false): string {
   const i = Math.floor(Math.log(n) / Math.log(1024));
   const val = (n / Math.pow(1024, i)).toFixed(short ? 0 : 1);
   return `${val} ${units[i]}`;
+}
+
+// ─── Customer Documents Component ──────────────────────────────
+
+function CustomerDocuments({ customerId, customer, onUpdate }: { customerId: string; customer: any; onUpdate: () => void }) {
+  const [uploading, setUploading] = useState<string | null>(null);
+
+  const handleUpload = async (fieldName: string, file: File) => {
+    setUploading(fieldName);
+    try {
+      const { uploadMultipleFiles } = await import("@/components/ui/file-upload");
+      await uploadMultipleFiles({
+        files: { [fieldName]: file },
+        url: `/isp/customers/${customerId}/documents`,
+      });
+      toast.success("Document uploaded");
+      onUpdate();
+    } catch {
+      toast.error("Upload failed");
+    }
+    setUploading(null);
+  };
+
+  const handleProfileImage = async (file: File) => {
+    setUploading("profileImage");
+    try {
+      const { uploadFileToApi } = await import("@/components/ui/file-upload");
+      await uploadFileToApi({
+        file,
+        url: `/isp/customers/${customerId}/profile-image`,
+        fieldName: "profileImage",
+      });
+      toast.success("Profile image uploaded");
+      onUpdate();
+    } catch {
+      toast.error("Upload failed");
+    }
+    setUploading(null);
+  };
+
+  const handleRemove = async (field: string) => {
+    try {
+      await api.delete(`/isp/customers/${customerId}/documents/${field}`);
+      toast.success("Document removed");
+      onUpdate();
+    } catch {
+      toast.error("Failed to remove document");
+    }
+  };
+
+  const [FileUploadComponent, setFileUploadComponent] = useState<any>(null);
+  const [loadError, setLoadError] = useState(false);
+  useEffect(() => {
+    import("@/components/ui/file-upload")
+      .then((mod) => setFileUploadComponent(() => mod.FileUpload))
+      .catch(() => setLoadError(true));
+  }, []);
+
+  if (loadError) return <p className="text-sm text-red-500">Failed to load upload component.</p>;
+  if (!FileUploadComponent) return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-blue-500" /></div>;
+  const FU = FileUploadComponent;
+
+  return (
+    <div className="space-y-6">
+      {/* Profile Image */}
+      <Card className="border-slate-200/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-slate-700">Profile Image</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-[200px]">
+            <FU
+              value={customer.profileImageUrl}
+              accept="image/*"
+              maxSizeMB={5}
+              label="Upload profile photo"
+              onFileSelect={(file: File) => handleProfileImage(file)}
+              onRemove={() => handleRemove("profileImageUrl")}
+              disabled={uploading === "profileImage"}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* NID & Agreement Documents */}
+      <Card className="border-slate-200/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-slate-700">Identity & Agreement Documents</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">NID Front</Label>
+              <FU
+                value={customer.nidFrontUrl}
+                accept="image/*,.pdf"
+                maxSizeMB={10}
+                label="NID front side"
+                compact
+                onFileSelect={(file: File) => handleUpload("nidFront", file)}
+                onRemove={() => handleRemove("nidFrontUrl")}
+                disabled={uploading === "nidFront"}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">NID Back</Label>
+              <FU
+                value={customer.nidBackUrl}
+                accept="image/*,.pdf"
+                maxSizeMB={10}
+                label="NID back side"
+                compact
+                onFileSelect={(file: File) => handleUpload("nidBack", file)}
+                onRemove={() => handleRemove("nidBackUrl")}
+                disabled={uploading === "nidBack"}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-slate-600">Agreement</Label>
+              <FU
+                value={customer.agreementUrl}
+                accept="image/*,.pdf"
+                maxSizeMB={10}
+                label="Service agreement"
+                compact
+                onFileSelect={(file: File) => handleUpload("agreement", file)}
+                onRemove={() => handleRemove("agreementUrl")}
+                disabled={uploading === "agreement"}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

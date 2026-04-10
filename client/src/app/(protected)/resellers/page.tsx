@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SortableHeader } from "@/components/ui/sortable-header";
@@ -301,7 +301,8 @@ export default function ResellersPage() {
           <DialogHeader>
             <DialogTitle>{editReseller ? "Edit Reseller" : "New Reseller"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmit}>
+            <DialogBody className="space-y-4">
             {!editReseller && (
               <div className="space-y-3 p-3 bg-slate-50 rounded-lg">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Account Details</p>
@@ -367,12 +368,17 @@ export default function ResellersPage() {
                 <Label htmlFor="canPkg" className="cursor-pointer">Can Create Packages</Label>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            {/* Documents section — edit mode only */}
+            {editReseller && (
+              <ResellerDocuments resellerId={editReseller.id} reseller={editReseller} onUpdate={() => { fetchResellers(); if (editReseller) api.get(`/isp/resellers/${editReseller.id}`).then(r => setEditReseller(r.data.data.reseller)).catch(() => {}); }} />
+            )}
+            </DialogBody>
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
               <Button type="submit" disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {saving ? "Saving..." : editReseller ? "Update" : "Create Reseller"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -382,7 +388,7 @@ export default function ResellersPage() {
         <Dialog open={!!viewReseller} onOpenChange={() => setViewReseller(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>Reseller Details</DialogTitle></DialogHeader>
-            <div className="space-y-3 pt-2">
+            <DialogBody className="space-y-3">
               <DetailRow label="Business" value={viewReseller.businessName} />
               <DetailRow label="Owner" value={viewReseller.user.name || "—"} />
               <DetailRow label="Email" value={viewReseller.user.email} />
@@ -395,7 +401,7 @@ export default function ResellersPage() {
               <DetailRow label="Support Email" value={viewReseller.supportEmail || "—"} />
               <DetailRow label="Status" value={<span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${viewReseller.isActive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>{viewReseller.isActive ? "Active" : "Inactive"}</span>} />
               <DetailRow label="Joined" value={format(new Date(viewReseller.createdAt), "MMM d, yyyy")} />
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}
@@ -418,6 +424,109 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
     <div className="flex items-start gap-3 text-sm">
       <span className="w-32 shrink-0 text-slate-400 font-medium">{label}</span>
       <span className="text-slate-700">{value}</span>
+    </div>
+  );
+}
+
+// ─── Reseller Documents Component ──────────────────────────────
+
+function ResellerDocuments({ resellerId, reseller, onUpdate }: { resellerId: string; reseller: any; onUpdate: () => void }) {
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [FU, setFU] = useState<any>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    import("@/components/ui/file-upload")
+      .then((mod) => setFU(() => mod.FileUpload))
+      .catch(() => setLoadError(true));
+  }, []);
+
+  const handleUpload = async (fieldName: string, file: File) => {
+    setUploading(fieldName);
+    try {
+      const { uploadMultipleFiles } = await import("@/components/ui/file-upload");
+      await uploadMultipleFiles({
+        files: { [fieldName]: file },
+        url: `/isp/resellers/${resellerId}/documents`,
+      });
+      toast.success("Document uploaded");
+      onUpdate();
+    } catch {
+      toast.error("Upload failed");
+    }
+    setUploading(null);
+  };
+
+  const handleLogo = async (file: File) => {
+    setUploading("logo");
+    try {
+      const { uploadFileToApi } = await import("@/components/ui/file-upload");
+      await uploadFileToApi({ file, url: `/isp/resellers/${resellerId}/logo`, fieldName: "logo" });
+      toast.success("Logo uploaded");
+      onUpdate();
+    } catch {
+      toast.error("Upload failed");
+    }
+    setUploading(null);
+  };
+
+  const handleRemove = async (field: string) => {
+    try {
+      await api.delete(`/isp/resellers/${resellerId}/documents/${field}`);
+      toast.success("Document removed");
+      onUpdate();
+    } catch {
+      toast.error("Failed to remove");
+    }
+  };
+
+  if (loadError) return <p className="text-sm text-red-500">Failed to load upload component.</p>;
+  if (!FU) return <div className="flex justify-center py-4"><div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-300 border-t-blue-500" /></div>;
+
+  return (
+    <div className="space-y-4 pt-4 border-t border-slate-200 mt-4">
+      <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider">Documents</h4>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-slate-600">Company Logo</Label>
+          <FU
+            value={reseller.companyLogo}
+            accept="image/*"
+            maxSizeMB={5}
+            label="Logo"
+            compact
+            onFileSelect={(file: File) => handleLogo(file)}
+            onRemove={() => handleRemove("companyLogo")}
+            disabled={uploading === "logo"}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-slate-600">Business Registration</Label>
+          <FU
+            value={reseller.businessRegistrationUrl}
+            accept="image/*,.pdf"
+            maxSizeMB={10}
+            label="Registration doc"
+            compact
+            onFileSelect={(file: File) => handleUpload("businessRegistration", file)}
+            onRemove={() => handleRemove("businessRegistrationUrl")}
+            disabled={uploading === "businessRegistration"}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-slate-600">TIN Document</Label>
+          <FU
+            value={reseller.tinDocumentUrl}
+            accept="image/*,.pdf"
+            maxSizeMB={10}
+            label="TIN certificate"
+            compact
+            onFileSelect={(file: File) => handleUpload("tinDocument", file)}
+            onRemove={() => handleRemove("tinDocumentUrl")}
+            disabled={uploading === "tinDocument"}
+          />
+        </div>
+      </div>
     </div>
   );
 }

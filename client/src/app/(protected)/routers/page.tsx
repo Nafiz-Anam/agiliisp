@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SortableHeader } from "@/components/ui/sortable-header";
@@ -304,7 +304,8 @@ export default function RoutersPage() {
           <DialogHeader>
             <DialogTitle>{editRouter ? "Edit Router" : "Add Router"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmit}>
+            <DialogBody className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5 col-span-2">
                 <Label htmlFor="name">Name *</Label>
@@ -343,7 +344,8 @@ export default function RoutersPage() {
                 <Label htmlFor="syncEnabled" className="cursor-pointer">Enable Auto-Sync</Label>
               </div>
             </div>
-            <div className="flex justify-between pt-2 border-t border-slate-100">
+            </DialogBody>
+            <DialogFooter className="justify-between">
               {editRouter && (
                 <Button type="button" variant="outline" onClick={handleTestConnection} disabled={testing}>
                   {testing ? "Testing..." : "Test Connection"}
@@ -355,7 +357,7 @@ export default function RoutersPage() {
                   {saving ? "Saving..." : editRouter ? "Update" : "Add Router"}
                 </Button>
               </div>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -365,7 +367,7 @@ export default function RoutersPage() {
         <Dialog open={!!viewRouter} onOpenChange={() => setViewRouter(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>Router Details</DialogTitle></DialogHeader>
-            <div className="space-y-3 pt-2">
+            <DialogBody className="space-y-3">
               <DetailRow label="Name" value={viewRouter.name} />
               <DetailRow label="Host" value={`${viewRouter.host}:${viewRouter.port}`} />
               <DetailRow label="SSL" value={viewRouter.useSSL ? "Yes" : "No"} />
@@ -376,7 +378,7 @@ export default function RoutersPage() {
               <DetailRow label="Last Sync" value={viewRouter.lastSyncAt ? format(new Date(viewRouter.lastSyncAt), "MMM d, yyyy HH:mm") : "Never"} />
               <DetailRow label="Sync Enabled" value={viewRouter.syncEnabled ? "Yes" : "No"} />
               <DetailRow label="Customers" value={String(viewRouter._count?.customers ?? "—")} />
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}

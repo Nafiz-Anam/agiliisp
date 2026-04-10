@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { format, subMonths } from "date-fns";
@@ -361,7 +361,7 @@ export default function ExpensesPage() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editId ? "Edit Expense" : "Add Expense"}</DialogTitle></DialogHeader>
-          <div className="space-y-3 pt-2">
+          <DialogBody className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Category</Label>
@@ -393,7 +393,7 @@ export default function ExpensesPage() {
             <Button onClick={handleSave} disabled={saving} className="w-full bg-blue-500 hover:bg-blue-600 text-white">
               {saving ? "Saving..." : editId ? "Update Expense" : "Add Expense"}
             </Button>
-          </div>
+          </DialogBody>
         </DialogContent>
       </Dialog>
     </div>

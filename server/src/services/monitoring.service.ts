@@ -189,6 +189,12 @@ const createAlertIfNew = async (
     },
   });
   logger.warn(`Monitoring Alert: ${title} on ${deviceType}:${deviceId}`);
+
+  // Notify admins/engineers about device alert
+  try {
+    const notifModule = await import('./notification.service');
+    notifModule.default.notifyDeviceAlert(`${deviceType}:${deviceId}`, alertType, severity, description).catch(() => {});
+  } catch {}
 };
 
 const autoResolveAlert = async (deviceId: string, deviceType: MonitoredDeviceType, alertType: string) => {
@@ -347,9 +353,64 @@ const triggerPoll = async (deviceId: string, deviceType: MonitoredDeviceType) =>
   await pollAndStore(deviceId, deviceType);
 };
 
+// ── Network Topology Data ──
+const getTopologyData = async () => {
+  const routers = await prisma.router.findMany({
+    select: {
+      id: true, name: true, host: true, status: true, description: true,
+      _count: { select: { customers: true } },
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  const db = prisma as any;
+  const olts = await db.olt.findMany({
+    select: {
+      id: true, name: true, ipAddress: true, status: true, brand: true,
+      _count: { select: { ports: true, onus: true } },
+    },
+    orderBy: { name: 'asc' },
+  }).catch(() => []);
+
+  // Get connection counts from the connection monitor cache
+  let connectionMonitor: any;
+  try { connectionMonitor = (await import('./connectionMonitor.service')).default; } catch {}
+  const totalOnline = connectionMonitor?.getTotalOnline?.() || 0;
+
+  const routerNodes = routers.map((r: any) => ({
+    id: r.id,
+    type: 'router',
+    name: r.name,
+    ip: r.host,
+    status: r.status,
+    routerType: r.description || 'MikroTik',
+    customers: r._count.customers,
+    activeConnections: connectionMonitor?.getCurrentConnections?.(r.id)?.length || 0,
+  }));
+
+  const oltNodes = (olts || []).map((o: any) => ({
+    id: o.id,
+    type: 'olt',
+    name: o.name,
+    ip: o.ipAddress,
+    status: o.status,
+    brand: o.brand,
+    ports: o._count?.ports || 0,
+    onus: o._count?.onus || 0,
+  }));
+
+  return {
+    routers: routerNodes,
+    olts: oltNodes,
+    totalOnline,
+    totalCustomers: routers.reduce((sum: number, r: any) => sum + r._count.customers, 0),
+  };
+};
+
 export default {
   startAllPolling, startDevicePolling, stopDevicePolling,
   pollAndStore, getMonitoringOverview, getDeviceMetrics,
   getAlerts, acknowledgeAlert, resolveAlert,
   getConfig, updateConfig, cleanupOldMetrics, triggerPoll,
+  getTopologyData,
 };

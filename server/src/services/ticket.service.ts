@@ -2,6 +2,8 @@ import httpStatus from 'http-status';
 import { TicketPriority, TicketStatus, Prisma } from '@prisma/client';
 import ApiError from '../utils/ApiError';
 import prisma from '../client';
+import logger from '../config/logger';
+import customerNoteService from './customerNote.service';
 
 const generateTicketNumber = async (): Promise<string> => {
   const count = await prisma.supportTicket.count();
@@ -27,7 +29,7 @@ const createTicket = async (
 
   const ticketNumber = await generateTicketNumber();
 
-  return prisma.supportTicket.create({
+  const ticket = await prisma.supportTicket.create({
     data: {
       ticketNumber,
       customerId: body.customerId,
@@ -45,6 +47,17 @@ const createTicket = async (
       _count: { select: { replies: true } },
     },
   });
+
+  // Auto-log to customer activity
+  customerNoteService.addSystemNote(body.customerId, `Ticket created: ${ticketNumber} — ${body.subject}`, { ticketId: ticket.id }).catch(() => {});
+
+  // Notify support team + assigned user
+  try {
+    const notifModule = await import('./notification.service');
+    notifModule.default.notifyTicketCreated(ticketNumber, body.subject, customer.fullName, body.assignedTo).catch(() => {});
+  } catch {}
+
+  return ticket;
 };
 
 const getTickets = async (options: {
@@ -147,7 +160,7 @@ const updateTicketById = async (
       : { disconnect: true };
   }
 
-  return prisma.supportTicket.update({
+  const updated = await prisma.supportTicket.update({
     where: { id },
     data: updateData,
     include: {
@@ -155,6 +168,22 @@ const updateTicketById = async (
       assignedUser: { select: { id: true, name: true, email: true } },
     },
   });
+
+  // Notify on status change or assignment
+  try {
+    const notifModule = await import('./notification.service');
+    if (body.status && body.status !== ticket.status) {
+      const targetId = ticket.assignedTo || ticket.customerId;
+      if (targetId) {
+        notifModule.default.notifyTicketStatusChanged(ticket.ticketNumber, ticket.subject, body.status, targetId).catch(() => {});
+      }
+    }
+    if (body.assignedTo && body.assignedTo !== ticket.assignedTo) {
+      notifModule.default.notifyTicketStatusChanged(ticket.ticketNumber, ticket.subject, 'ASSIGNED', body.assignedTo).catch(() => {});
+    }
+  } catch {}
+
+  return updated;
 };
 
 const addReply = async (
@@ -185,6 +214,15 @@ const addReply = async (
       data: { status: TicketStatus.IN_PROGRESS },
     });
   }
+
+  // Notify the other party about the reply
+  try {
+    const notifModule = await import('./notification.service');
+    const targetId = userId === ticket.assignedTo ? undefined : ticket.assignedTo;
+    if (targetId) {
+      notifModule.default.notifyTicketReplied(ticket.ticketNumber, ticket.subject, reply.user?.name || 'Staff', targetId).catch(() => {});
+    }
+  } catch {}
 
   return reply;
 };

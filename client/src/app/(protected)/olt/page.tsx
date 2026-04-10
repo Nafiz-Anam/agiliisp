@@ -62,6 +62,8 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogBody,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -785,6 +787,7 @@ export default function OLTCompletePage() {
                                 OLT Details
                             </DialogTitle>
                         </DialogHeader>
+                        <DialogBody>
                         <Tabs value={activeTab} onValueChange={setActiveTab}>
                             <TabsList>
                                 <TabsTrigger value="overview">
@@ -1283,14 +1286,15 @@ export default function OLTCompletePage() {
                                 </div>
                             </TabsContent>
                         </Tabs>
-                        <div className="flex justify-end gap-2 pt-4">
+                        </DialogBody>
+                        <DialogFooter>
                             <Button
                                 variant="outline"
                                 onClick={() => setShowDetailsDialog(false)}
                             >
                                 Close
                             </Button>
-                        </div>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
             )}
@@ -1307,7 +1311,7 @@ export default function OLTCompletePage() {
                                 Add New OLT
                             </DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-4">
+                        <DialogBody className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <Label htmlFor="name">OLT Name</Label>
@@ -1434,8 +1438,8 @@ export default function OLTCompletePage() {
                                     <Label htmlFor="isActive">Active</Label>
                                 </div>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-2 pt-4">
+                        </DialogBody>
+                        <DialogFooter>
                             <Button
                                 variant="outline"
                                 onClick={() => setShowCreateDialog(false)}
@@ -1461,7 +1465,7 @@ export default function OLTCompletePage() {
                             >
                                 Create OLT
                             </Button>
-                        </div>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
             )}

@@ -16,33 +16,55 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Generate unique filename
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
     cb(null, file.fieldname + '-' + uniqueSuffix + ext);
   },
 });
 
-// File filter
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Check file type
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+// ─── File filters ──────────────────────────────────────────────
 
-  if (allowedMimeTypes.includes(file.mimetype)) {
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const DOCUMENT_TYPES = [...IMAGE_TYPES, 'application/pdf'];
+
+const imageFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (IMAGE_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new ApiError(httpStatus.BAD_REQUEST, 'Invalid file type. Only images are allowed.'));
+    cb(new ApiError(httpStatus.BAD_REQUEST, 'Invalid file type. Only images (JPEG, PNG, GIF, WebP) are allowed.'));
   }
 };
 
-// Configure multer
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
-    files: 1, // Only allow 1 file
-  },
+const documentFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  if (DOCUMENT_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new ApiError(httpStatus.BAD_REQUEST, 'Invalid file type. Images and PDF are allowed.'));
+  }
+};
+
+// ─── Upload configs ────────────────────────────────────────────
+
+/** Single image upload — 5MB max (profile pictures, logos) */
+export const uploadImage = multer({
+  storage,
+  fileFilter: imageFilter,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
 });
 
-export default upload;
+/** Single document upload — 10MB max (images + PDF) */
+export const uploadDocument = multer({
+  storage,
+  fileFilter: documentFilter,
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+});
+
+/** Multi-field document upload — 10MB each, up to 5 files total */
+export const uploadDocuments = multer({
+  storage,
+  fileFilter: documentFilter,
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 },
+});
+
+// Default export for backwards compatibility (profile picture)
+export default uploadImage;

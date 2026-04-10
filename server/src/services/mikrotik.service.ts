@@ -3,6 +3,7 @@ import { Router, RouterStatus, SyncDirection, SyncStatus, Prisma } from '@prisma
 import ApiError from '../utils/ApiError';
 import prisma from '../client';
 import logger from '../config/logger';
+import complianceLogService from './complianceLog.service';
 
 // MikroTik API response types
 interface MikrotikResponse {
@@ -409,6 +410,30 @@ class MikroTikService {
     if (!router) {
       throw new ApiError(httpStatus.NOT_FOUND, 'Router not found');
     }
+
+    // Log compliance event before disconnecting
+    try {
+      const active = await this.getActiveConnections(routerId);
+      const conn = active.find(c => c['.id'] === connectionId);
+      if (conn) {
+        const customer = await prisma.ispCustomer.findFirst({ where: { username: conn.name }, select: { id: true } });
+        complianceLogService.logSession({
+          customerId: customer?.id, username: conn.name, routerId, eventType: 'ADMIN_KICK',
+          ipAddress: conn.address, macAddress: conn.callerId, nasIp: router.host,
+          service: 'pppoe', disconnectReason: 'admin-disconnect',
+        }).catch(() => {});
+        complianceLogService.logAuth({
+          username: conn.name, customerId: customer?.id, routerId, eventType: 'LOGOUT',
+          ipAddress: conn.address, macAddress: conn.callerId, nasIp: router.host, service: 'pppoe',
+        }).catch(() => {});
+        if (conn.address) {
+          complianceLogService.logNat({
+            customerId: customer?.id, username: conn.name, assignedIp: conn.address,
+            macAddress: conn.callerId, routerId, action: 'RELEASE',
+          }).catch(() => {});
+        }
+      }
+    } catch { /* don't block disconnect if logging fails */ }
 
     try {
       await this.apiRequest(router, `/ppp/active/${connectionId}`, 'DELETE');

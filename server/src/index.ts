@@ -1,11 +1,11 @@
-import { Server } from 'http';
+import { createServer, Server } from 'http';
 import app from './app';
 import prisma from './client';
 import config from './config/config';
 import logger from './config/logger';
 import tokenCleanupService from './services/tokenCleanup.service';
 import ispSchedulerService from './services/ispScheduler.service';
-import { initializeWebSocket } from './controllers/websocket.controller';
+import { initializeSocket } from './controllers/websocket.controller';
 import { initializeTracing } from './utils/tracing';
 
 // Initialize OpenTelemetry tracing
@@ -20,14 +20,15 @@ prisma
     logger.info('Connected to SQL Database');
     logger.debug('Attempting to start HTTP server...');
 
-    // Initialize WebSocket server
-    initializeWebSocket();
+    // Create HTTP server and attach Socket.io
+    server = createServer(app);
+    initializeSocket(server);
 
-    server = app.listen(config.port, () => {
+    server.listen(config.port, () => {
       logger.info(`Listening to port ${config.port}`);
       logger.info(`🚀 API Server running at http://localhost:${config.port}`);
       logger.info(`📚 API Documentation available at http://localhost:${config.port}/v1/docs`);
-      logger.info(`🔌 WebSocket server running on port ${process.env.WS_PORT || '8080'}`);
+      logger.info(`🔌 Socket.io attached to HTTP server on port ${config.port}`);
       logger.debug('Server started successfully');
 
       // Schedule token cleanup to run every 15 minutes
@@ -35,6 +36,12 @@ prisma
 
       // Start ISP automation schedulers (billing, auto-suspend)
       ispSchedulerService.startISPSchedulers();
+
+      // Start connection monitor (PPPoE state tracking for compliance)
+      import('./services/connectionMonitor.service').then(m => m.default.startPolling()).catch(() => {});
+
+      // Start RADIUS accounting listener (if enabled)
+      import('./services/radius.service').then(m => m.default.startServer()).catch(() => {});
     });
   })
   .catch((error: Error) => {

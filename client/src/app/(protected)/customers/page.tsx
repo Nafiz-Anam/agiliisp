@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
@@ -45,6 +45,13 @@ const EMPTY_FORM = {
   macAddress: "",
   billingCycle: 1,
   status: "PENDING_ACTIVATION",
+  // BD-specific
+  nidNumber: "",
+  zoneId: "",
+  collectorId: "",
+  billingType: "POSTPAID",
+  building: "",
+  floor: "",
 };
 
 export default function CustomersPage() {
@@ -172,6 +179,12 @@ export default function CustomersPage() {
       macAddress: c.macAddress || "",
       billingCycle: c.billingCycle,
       status: c.status,
+      nidNumber: (c as any).nidNumber || "",
+      zoneId: (c as any).zoneId || "",
+      collectorId: (c as any).collectorId || "",
+      billingType: (c as any).billingType || "POSTPAID",
+      building: (c as any).building || "",
+      floor: (c as any).floor || "",
     });
     handleRouterChange(c.router.id);
     setShowForm(true);
@@ -302,7 +315,7 @@ export default function CustomersPage() {
                 {bulkAction === "suspend" ? "Bulk Suspend" : bulkAction === "activate" ? "Bulk Activate" : "Bulk Change Package"} ({selected.size} customers)
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-3 pt-2">
+            <DialogBody className="space-y-3">
               {bulkAction === "suspend" && (
                 <div><Label>Reason</Label><Input value={bulkReason} onChange={e => setBulkReason(e.target.value)} placeholder="Non-payment, etc." /></div>
               )}
@@ -321,7 +334,7 @@ export default function CustomersPage() {
               <Button onClick={executeBulkAction} disabled={bulkLoading} className="w-full bg-blue-500 hover:bg-blue-600 text-white">
                 {bulkLoading ? "Processing..." : "Confirm"}
               </Button>
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}
@@ -442,7 +455,8 @@ export default function CustomersPage() {
           <DialogHeader>
             <DialogTitle>{editCustomer ? "Edit Customer" : "New Customer"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmit}>
+            <DialogBody className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="fullName">Full Name *</Label>
@@ -547,12 +561,40 @@ export default function CustomersPage() {
                 <Input id="address" value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+
+            {/* Bangladesh-specific fields */}
+            <div className="border-t border-slate-100 pt-3">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Additional Info</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>NID Number</Label>
+                  <Input value={form.nidNumber} onChange={(e) => setForm((f) => ({ ...f, nidNumber: e.target.value }))} placeholder="National ID" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Billing Type</Label>
+                  <select value={form.billingType} onChange={(e) => setForm((f) => ({ ...f, billingType: e.target.value }))} className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white">
+                    <option value="POSTPAID">Postpaid</option>
+                    <option value="PREPAID">Prepaid</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Building</Label>
+                  <Input value={form.building} onChange={(e) => setForm((f) => ({ ...f, building: e.target.value }))} placeholder="Building name/number" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Floor</Label>
+                  <Input value={form.floor} onChange={(e) => setForm((f) => ({ ...f, floor: e.target.value }))} placeholder="e.g. 3rd" />
+                </div>
+              </div>
+            </div>
+            </DialogBody>
+
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
               <Button type="submit" disabled={saving} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {saving ? "Saving..." : editCustomer ? "Update Customer" : "Create Customer"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -564,7 +606,7 @@ export default function CustomersPage() {
             <DialogHeader>
               <DialogTitle>Customer Details</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3 pt-2">
+            <DialogBody className="space-y-3">
               <DetailRow label="Full Name" value={viewCustomer.fullName} />
               <DetailRow label="Username" value={viewCustomer.username} />
               <DetailRow label="Email" value={viewCustomer.email || "—"} />
@@ -583,7 +625,7 @@ export default function CustomersPage() {
               <DetailRow label="Next Billing" value={viewCustomer.nextBillingDate ? format(new Date(viewCustomer.nextBillingDate), "MMM d, yyyy") : "—"} />
               <DetailRow label="Data Used" value={viewCustomer.dataUsed} />
               <DetailRow label="Reseller" value={viewCustomer.reseller?.businessName || "Direct"} />
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}

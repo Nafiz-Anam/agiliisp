@@ -937,6 +937,158 @@ async function main() {
   const totalPerms = permissionsDef.length;
   const totalRoles = Object.keys(rolePermissions).length;
 
+  // ═══════════════════════════════════════════
+  // ZONES — Bangladesh location-based zones
+  // ═══════════════════════════════════════════
+  console.log('Seeding zones...');
+
+  const db = prisma as any;
+
+  // Top-level division zones
+  const khulnaDiv = await db.zone.create({
+    data: { name: 'Khulna Division', division: 'Khulna', description: 'Khulna divisional coverage' },
+  });
+  const dhakaDiv = await db.zone.create({
+    data: { name: 'Dhaka Division', division: 'Dhaka', description: 'Dhaka divisional coverage' },
+  });
+  const ctgDiv = await db.zone.create({
+    data: { name: 'Chattogram Division', division: 'Chattogram', description: 'Chattogram divisional coverage' },
+  });
+
+  // District-level zones under Khulna
+  const khulnaDist = await db.zone.create({
+    data: { name: 'Khulna District', division: 'Khulna', district: 'Khulna', parentId: khulnaDiv.id, description: 'Khulna district operational area' },
+  });
+  const jessore = await db.zone.create({
+    data: { name: 'Jashore District', division: 'Khulna', district: 'Jashore', parentId: khulnaDiv.id, description: 'Jashore district operational area' },
+  });
+  const satkhira = await db.zone.create({
+    data: { name: 'Satkhira District', division: 'Khulna', district: 'Satkhira', parentId: khulnaDiv.id },
+  });
+
+  // Thana-level zones under Khulna District (metro thanas)
+  const khalishpur = await db.zone.create({
+    data: {
+      name: 'Khalishpur', division: 'Khulna', district: 'Khulna', upazila: 'Khalishpur',
+      parentId: khulnaDist.id,
+      coverage: 'Khalishpur Industrial Area, Jute Mills, Newsprint Mill, Power House, BIT Khulna\nWard 7-15',
+    },
+  });
+  const sonadanga = await db.zone.create({
+    data: {
+      name: 'Sonadanga', division: 'Khulna', district: 'Khulna', upazila: 'Sonadanga',
+      parentId: khulnaDist.id,
+      coverage: 'Nirala, Gollamari, Boyra, New Market, Shibbari, Mujgunni, Eastern Plaza\nWard 16-20, 25-26',
+    },
+  });
+  const daulatpur = await db.zone.create({
+    data: {
+      name: 'Daulatpur', division: 'Khulna', district: 'Khulna', upazila: 'Daulatpur',
+      parentId: khulnaDist.id,
+      coverage: 'Maheshwarpasha, Shiramoni, Badamtali, Trade School, Daulatpur Railway Station\nWard 4-6',
+    },
+  });
+  await db.zone.create({
+    data: {
+      name: 'Kotwali', division: 'Khulna', district: 'Khulna', upazila: 'Kotwali',
+      parentId: khulnaDist.id,
+      coverage: 'Tutpara, Dolkhola, Khulna Shipyard, Railway Station, Rayer Mahal\nWard 21-24, 27-30',
+    },
+  });
+  await db.zone.create({
+    data: {
+      name: 'Khan Jahan Ali', division: 'Khulna', district: 'Khulna', upazila: 'Khan Jahan Ali',
+      parentId: khulnaDist.id,
+      coverage: 'Phulbari Gate, Atra, Jahanabad Cantonment, Satgumbad Mosque area',
+    },
+  });
+  await db.zone.create({
+    data: {
+      name: 'Labanchara', division: 'Khulna', district: 'Khulna', upazila: 'Labanchara',
+      parentId: khulnaDist.id,
+      coverage: 'Moylapota, Arambag, Gilatola, KDA Avenue\nWard 31',
+    },
+  });
+
+  // Area-level zones under Khalishpur
+  await db.zone.create({
+    data: {
+      name: 'BIT Khulna Area', division: 'Khulna', district: 'Khulna', upazila: 'Khalishpur', area: 'BIT Khulna',
+      parentId: khalishpur.id,
+      coverage: 'BIT campus and surrounding residential area',
+    },
+  });
+  await db.zone.create({
+    data: {
+      name: 'Power House Area', division: 'Khulna', district: 'Khulna', upazila: 'Khalishpur', area: 'Power House',
+      parentId: khalishpur.id,
+      coverage: 'Power House colony, adjacent residential blocks',
+    },
+  });
+
+  // Area-level under Sonadanga
+  await db.zone.create({
+    data: {
+      name: 'Boyra', division: 'Khulna', district: 'Khulna', upazila: 'Sonadanga', area: 'Boyra',
+      parentId: sonadanga.id,
+      coverage: 'Boro Boyra, Choto Boyra, Boyra Mohalla',
+    },
+  });
+  await db.zone.create({
+    data: {
+      name: 'Nirala', division: 'Khulna', district: 'Khulna', upazila: 'Sonadanga', area: 'Nirala',
+      parentId: sonadanga.id,
+      coverage: 'Nirala residential area, R/A',
+    },
+  });
+  await db.zone.create({
+    data: {
+      name: 'Gollamari', division: 'Khulna', district: 'Khulna', upazila: 'Sonadanga', area: 'Gollamari',
+      parentId: sonadanga.id,
+    },
+  });
+
+  // District-level zones under Dhaka
+  const dhakaDist = await db.zone.create({
+    data: { name: 'Dhaka City', division: 'Dhaka', district: 'Dhaka', parentId: dhakaDiv.id },
+  });
+  const gazipur = await db.zone.create({
+    data: { name: 'Gazipur District', division: 'Dhaka', district: 'Gazipur', parentId: dhakaDiv.id },
+  });
+
+  // Thana-level under Dhaka City
+  await db.zone.create({
+    data: { name: 'Mirpur', division: 'Dhaka', district: 'Dhaka', upazila: 'Mirpur Model', parentId: dhakaDist.id, coverage: 'Mirpur-1 to Mirpur-14, Shah Ali Bagh' },
+  });
+  await db.zone.create({
+    data: { name: 'Dhanmondi', division: 'Dhaka', district: 'Dhaka', upazila: 'Dhanmondi', parentId: dhakaDist.id, coverage: 'Dhanmondi R/A, Shankar, Jhigatola, Science Lab' },
+  });
+  await db.zone.create({
+    data: { name: 'Uttara', division: 'Dhaka', district: 'Dhaka', upazila: 'Uttara East', parentId: dhakaDist.id, coverage: 'Sector 1-11, Jasimuddin Road, Rajlakshmi Complex' },
+  });
+  await db.zone.create({
+    data: { name: 'Gulshan', division: 'Dhaka', district: 'Dhaka', upazila: 'Gulshan', parentId: dhakaDist.id, coverage: 'Gulshan-1, Gulshan-2, Niketan, Gulshan Avenue' },
+  });
+  await db.zone.create({
+    data: { name: 'Mohammadpur', division: 'Dhaka', district: 'Dhaka', upazila: 'Mohammadpur', parentId: dhakaDist.id, coverage: 'Tajmahal Road, Jafrabad, Noorjahan Road, Town Hall' },
+  });
+
+  // District under Chattogram
+  const ctgDist = await db.zone.create({
+    data: { name: 'Chattogram City', division: 'Chattogram', district: 'Chattogram', parentId: ctgDiv.id },
+  });
+  await db.zone.create({
+    data: { name: 'Agrabad', division: 'Chattogram', district: 'Chattogram', upazila: 'Double Mooring', area: 'Agrabad', parentId: ctgDist.id, coverage: 'North Agrabad, South Agrabad, Strand Road, Kadamtali' },
+  });
+  await db.zone.create({
+    data: { name: 'GEC Circle', division: 'Chattogram', district: 'Chattogram', upazila: 'Panchlaish', area: 'GEC Circle', parentId: ctgDist.id, coverage: 'GEC Circle, Sugandha, O.R. Nizam Road, Prabartak' },
+  });
+  await db.zone.create({
+    data: { name: 'Halishahar', division: 'Chattogram', district: 'Chattogram', upazila: 'Halishahar', parentId: ctgDist.id, coverage: 'Halishahar Housing, Bandartila, CDA Avenue' },
+  });
+
+  const totalZones = await db.zone.count();
+
   console.log('Database seeding completed!');
   console.log(`  - Users: 5 (admin, super_admin, 2 resellers, 1 customer)`);
   console.log(`  - Routers: 4`);
@@ -948,6 +1100,7 @@ async function main() {
   console.log(`  - OLTs: 3, Ports: ${ports.length}, ONUs: 6`);
   console.log(`  - Inventory: ${inventoryItems.length} items, 2 purchase orders`);
   console.log(`  - RBAC: ${totalRoles} roles, ${totalPerms} permissions`);
+  console.log(`  - Zones: ${totalZones}`);
 }
 
 main()

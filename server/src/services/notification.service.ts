@@ -1,20 +1,9 @@
 import { Request } from 'express';
+import { NotificationType } from '@prisma/client';
 import prisma from '../client';
 import emailService from './email.service';
 import ApiError from '../utils/ApiError';
 import httpStatus from 'http-status';
-
-// Notification types from Prisma schema
-enum NotificationType {
-  LOGIN_ALERT,
-  PASSWORD_CHANGE,
-  EMAIL_VERIFICATION,
-  TWO_FACTOR_SETUP,
-  ACCOUNT_LOCKED,
-  SECURITY_ALERT,
-  SYSTEM_UPDATE,
-  WELCOME,
-}
 
 /**
  * Create a new notification
@@ -27,7 +16,7 @@ enum NotificationType {
  */
 const createNotification = async (
   userId: string,
-  type: any, // Using any to avoid circular dependency with NotificationType enum
+  type: NotificationType,
   title: string,
   message: string,
   metadata: Record<string, any> = {}
@@ -43,21 +32,13 @@ const createNotification = async (
     },
   });
 
-  // Send push notification if WebSocket service is available
+  // Send push notification via Socket.io
   try {
-    const { getWebSocketController } = await import('../controllers/websocket.controller');
-    const wsController = getWebSocketController();
-    if (wsController) {
-      await wsController.sendPushNotification(userId, {
-        type,
-        title,
-        message,
-        metadata,
-      });
-    }
-  } catch (error) {
-    // WebSocket service not initialized, which is fine for some operations
-    console.log('WebSocket service not available for push notification');
+    const { getSocketController } = await import('../controllers/websocket.controller');
+    const socket = getSocketController();
+    await socket.sendPushNotification(userId, { type, title, message, metadata });
+  } catch {
+    // Socket.io not initialized yet — fine during startup
   }
 
   return notification;
@@ -568,6 +549,110 @@ function getEmailNotifications(notifications: any): any {
   return notifications;
 }
 
+// ─── ISP Business Notification Helpers ──────────────────────────
+
+/**
+ * Notify admins/managers about a new invoice
+ */
+const notifyInvoiceCreated = async (invoiceNumber: string, customerName: string, amount: number) => {
+  const admins = await prisma.user.findMany({
+    where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }, isActive: true },
+    select: { id: true },
+  });
+  for (const admin of admins) {
+    await createNotification(admin.id, 'INVOICE_CREATED' as NotificationType, 'New Invoice Created', `Invoice ${invoiceNumber} for ${customerName} — ৳${amount.toFixed(2)}`, { invoiceNumber, customerName, amount });
+  }
+};
+
+/**
+ * Notify admins about a payment received
+ */
+const notifyPaymentReceived = async (invoiceNumber: string, customerName: string, amount: number, method: string) => {
+  const admins = await prisma.user.findMany({
+    where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }, isActive: true },
+    select: { id: true },
+  });
+  for (const admin of admins) {
+    await createNotification(admin.id, 'PAYMENT_RECEIVED' as NotificationType, 'Payment Received', `৳${amount.toFixed(2)} via ${method} for ${invoiceNumber} — ${customerName}`, { invoiceNumber, customerName, amount, method });
+  }
+};
+
+/**
+ * Notify support team + assigned user about a new ticket
+ */
+const notifyTicketCreated = async (ticketNumber: string, subject: string, customerName: string, assignedToId?: string) => {
+  const supportUsers = await prisma.user.findMany({
+    where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'] }, isActive: true },
+    select: { id: true },
+  });
+  const notifiedIds = new Set<string>();
+  for (const user of supportUsers) {
+    notifiedIds.add(user.id);
+    await createNotification(user.id, 'TICKET_CREATED' as NotificationType, 'New Support Ticket', `${ticketNumber}: ${subject} — ${customerName}`, { ticketNumber, subject, customerName });
+  }
+  if (assignedToId && !notifiedIds.has(assignedToId)) {
+    await createNotification(assignedToId, 'TICKET_ASSIGNED' as NotificationType, 'Ticket Assigned to You', `${ticketNumber}: ${subject} — ${customerName}`, { ticketNumber, subject, customerName });
+  }
+};
+
+/**
+ * Notify about ticket reply
+ */
+const notifyTicketReplied = async (ticketNumber: string, subject: string, replierName: string, targetUserId: string) => {
+  await createNotification(targetUserId, 'TICKET_REPLIED' as NotificationType, 'New Ticket Reply', `${replierName} replied to ${ticketNumber}: ${subject}`, { ticketNumber, subject, replierName });
+};
+
+/**
+ * Notify about ticket status change (resolved, assigned, etc.)
+ */
+const notifyTicketStatusChanged = async (ticketNumber: string, subject: string, newStatus: string, targetUserId: string) => {
+  const type = newStatus === 'RESOLVED' ? 'TICKET_RESOLVED' : 'TICKET_ASSIGNED';
+  await createNotification(targetUserId, type as NotificationType, `Ticket ${newStatus}`, `${ticketNumber}: ${subject}`, { ticketNumber, subject, newStatus });
+};
+
+/**
+ * Notify admins about customer status change
+ */
+const notifyCustomerStatusChanged = async (customerName: string, username: string, newStatus: string) => {
+  const typeMap: Record<string, string> = {
+    ACTIVE: 'CUSTOMER_ACTIVATED',
+    SUSPENDED: 'CUSTOMER_SUSPENDED',
+    EXPIRED: 'CUSTOMER_EXPIRED',
+  };
+  const type = typeMap[newStatus] || 'SYSTEM_UPDATE';
+  const admins = await prisma.user.findMany({
+    where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] }, isActive: true },
+    select: { id: true },
+  });
+  for (const admin of admins) {
+    await createNotification(admin.id, type as NotificationType, `Customer ${newStatus}`, `${customerName} (${username}) is now ${newStatus}`, { customerName, username, newStatus });
+  }
+};
+
+/**
+ * Notify admins/engineers about device alert
+ */
+const notifyDeviceAlert = async (deviceName: string, alertType: string, severity: string, message: string) => {
+  const users = await prisma.user.findMany({
+    where: { role: { in: ['SUPER_ADMIN', 'ADMIN', 'ENGINEER'] }, isActive: true },
+    select: { id: true },
+  });
+  for (const user of users) {
+    await createNotification(user.id, 'DEVICE_ALERT' as NotificationType, `${severity} Alert: ${deviceName}`, message, { deviceName, alertType, severity });
+  }
+};
+
+/**
+ * Broadcast customer online/offline summary to admin room via Socket.io
+ */
+const notifyConnectionChange = async (summary: { online: number; offline: number; routerName: string }) => {
+  try {
+    const { getSocketController } = await import('../controllers/websocket.controller');
+    const socket = getSocketController();
+    socket.emitToRoles(['SUPER_ADMIN', 'ADMIN', 'ENGINEER'], 'connection:update', summary);
+  } catch {}
+};
+
 export default {
   createNotification,
   sendLoginAlert,
@@ -585,4 +670,13 @@ export default {
   sendTwoFactorNotification,
   sendDeviceLoginNotification,
   getNotificationStats,
+  // ISP business helpers
+  notifyInvoiceCreated,
+  notifyPaymentReceived,
+  notifyTicketCreated,
+  notifyTicketReplied,
+  notifyTicketStatusChanged,
+  notifyCustomerStatusChanged,
+  notifyDeviceAlert,
+  notifyConnectionChange,
 };

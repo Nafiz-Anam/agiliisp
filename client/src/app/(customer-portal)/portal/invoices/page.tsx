@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -136,7 +136,7 @@ export default function MyInvoicesPage() {
                 </Button>
               </div>
             </DialogHeader>
-            <div className="space-y-4 pt-2">
+            <DialogBody className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><p className="text-xs text-slate-400">Status</p><Badge className={`text-[10px] ${STATUS_STYLES[viewInvoice.status] || ""}`}>{viewInvoice.status.replace(/_/g, " ")}</Badge></div>
                 <div><p className="text-xs text-slate-400">Invoice Date</p><p className="font-medium">{format(new Date(viewInvoice.invoiceDate), "MMM d, yyyy")}</p></div>
@@ -160,7 +160,7 @@ export default function MyInvoicesPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}

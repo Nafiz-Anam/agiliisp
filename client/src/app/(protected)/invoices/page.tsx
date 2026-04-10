@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { SortableHeader } from "@/components/ui/sortable-header";
@@ -664,7 +664,7 @@ export default function InvoicesPage() {
                 </Button>
               </div>
             </DialogHeader>
-            <div className="space-y-4 pt-2">
+            <DialogBody className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <DetailRow label="Customer" value={viewInvoice.customer.fullName} />
                 <DetailRow label="Reseller" value={viewInvoice.reseller?.businessName || "Direct"} />
@@ -698,7 +698,7 @@ export default function InvoicesPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </DialogBody>
           </DialogContent>
         </Dialog>
       )}
@@ -708,7 +708,8 @@ export default function InvoicesPage() {
         <Dialog open={!!recordPayment} onOpenChange={() => setRecordPayment(null)}>
           <DialogContent className="max-w-sm">
             <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
-            <form onSubmit={handleRecordPayment} className="space-y-4 pt-2">
+            <form onSubmit={handleRecordPayment}>
+              <DialogBody className="space-y-4">
               <p className="text-sm text-slate-500">Invoice: <span className="font-mono font-medium text-slate-700">{recordPayment.invoiceNumber}</span></p>
               <div className="space-y-1.5">
                 <Label htmlFor="payAmount">Amount ($) *</Label>
@@ -733,12 +734,13 @@ export default function InvoicesPage() {
                 <Label htmlFor="payNotes">Notes</Label>
                 <Input id="payNotes" value={paymentForm.notes} onChange={(e) => setPaymentForm((f) => ({ ...f, notes: e.target.value }))} />
               </div>
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              </DialogBody>
+              <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setRecordPayment(null)}>Cancel</Button>
                 <Button type="submit" disabled={savingPayment} className="bg-emerald-500 hover:bg-emerald-600 text-white">
                   {savingPayment ? "Recording..." : "Record Payment"}
                 </Button>
-              </div>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -748,7 +750,8 @@ export default function InvoicesPage() {
       <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>New Invoice</DialogTitle></DialogHeader>
-          <form onSubmit={handleCreateInvoice} className="space-y-4 pt-2">
+          <form onSubmit={handleCreateInvoice}>
+            <DialogBody className="space-y-4">
             <div className="space-y-1.5">
               <Label>Customer *</Label>
               <select
@@ -792,12 +795,13 @@ export default function InvoicesPage() {
               <Label>Notes</Label>
               <Input value={createForm.notes} onChange={(e) => setCreateForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." />
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            </DialogBody>
+            <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
               <Button type="submit" disabled={savingCreate} className="bg-blue-500 hover:bg-blue-600 text-white">
                 {savingCreate ? "Creating..." : "Create Invoice"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -806,7 +810,7 @@ export default function InvoicesPage() {
       <Dialog open={showAutoGenerate} onOpenChange={setShowAutoGenerate}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>Auto-Generate Monthly Invoices</DialogTitle></DialogHeader>
-          <div className="space-y-4 pt-2">
+          <DialogBody className="space-y-4">
             <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700">
               This will create one invoice for <strong>every active customer</strong> using their current package price, with the specified due date.
             </div>
@@ -814,18 +818,18 @@ export default function InvoicesPage() {
               <Label>Due Date *</Label>
               <Input type="date" value={autoGenDueDate} onChange={(e) => setAutoGenDueDate(e.target.value)} required />
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <Button variant="outline" onClick={() => setShowAutoGenerate(false)}>Cancel</Button>
-              <Button
-                onClick={handleAutoGenerate}
-                disabled={autoGenerating || !autoGenDueDate}
-                className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5"
-              >
-                <Zap className="h-4 w-4" />
-                {autoGenerating ? "Generating..." : "Generate All"}
-              </Button>
-            </div>
-          </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAutoGenerate(false)}>Cancel</Button>
+            <Button
+              onClick={handleAutoGenerate}
+              disabled={autoGenerating || !autoGenDueDate}
+              className="bg-blue-500 hover:bg-blue-600 text-white gap-1.5"
+            >
+              <Zap className="h-4 w-4" />
+              {autoGenerating ? "Generating..." : "Generate All"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
         </TabsContent>

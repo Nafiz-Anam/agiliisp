@@ -121,6 +121,9 @@ export interface Reseller {
     supportEmail: string | null;
     notes: string | null;
     isActive: boolean;
+    companyLogo: string | null;
+    businessRegistrationUrl: string | null;
+    tinDocumentUrl: string | null;
     createdAt: string;
     user: { id: string; name: string | null; email: string };
     _count?: { customers: number };
@@ -145,6 +148,11 @@ export interface IspCustomer {
     address: string | null;
     city: string | null;
     billingCycle: number;
+    nidNumber: string | null;
+    nidFrontUrl: string | null;
+    nidBackUrl: string | null;
+    agreementUrl: string | null;
+    profileImageUrl: string | null;
     createdAt: string;
     router: { id: string; name: string };
     package: {

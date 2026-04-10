@@ -24,6 +24,9 @@ const createReseller = async (
     supportPhone?: string;
     supportEmail?: string;
     notes?: string;
+    parentResellerId?: string;
+    zoneId?: string;
+    canCreateSubResellers?: boolean;
   },
   createdBy?: string
 ): Promise<Reseller> => {
@@ -42,6 +45,16 @@ const createReseller = async (
     throw new ApiError(httpStatus.BAD_REQUEST, 'Business name already exists');
   }
 
+  // Determine level from parent hierarchy
+  let level = 'MASTER';
+  if (resellerBody.parentResellerId) {
+    const parent = await prisma.reseller.findUnique({ where: { id: resellerBody.parentResellerId } });
+    if (!parent) throw new ApiError(httpStatus.NOT_FOUND, 'Parent reseller not found');
+    if (!parent.isActive) throw new ApiError(httpStatus.BAD_REQUEST, 'Parent reseller is inactive');
+    if (parent.level === 'SUB') throw new ApiError(httpStatus.BAD_REQUEST, 'Cannot create sub-reseller under a Level 3 (SUB) reseller. Maximum 3 levels allowed.');
+    level = parent.level === 'MASTER' ? 'AREA' : 'SUB';
+  }
+
   // Create user first
   const user = await userService.createUser({
     ...resellerBody.user,
@@ -55,6 +68,10 @@ const createReseller = async (
       businessName: resellerBody.businessName,
       businessRegistration: resellerBody.businessRegistration,
       taxId: resellerBody.taxId,
+      level,
+      parentResellerId: resellerBody.parentResellerId || null,
+      zoneId: resellerBody.zoneId || null,
+      canCreateSubResellers: resellerBody.canCreateSubResellers ?? false,
       commissionRate: resellerBody.commissionRate
         ? new Prisma.Decimal(resellerBody.commissionRate)
         : undefined,
@@ -68,6 +85,10 @@ const createReseller = async (
       supportEmail: resellerBody.supportEmail,
       notes: resellerBody.notes,
       createdBy,
+    },
+    include: {
+      parentReseller: { select: { id: true, businessName: true, level: true } },
+      zone: { select: { id: true, name: true } },
     },
   });
 };
@@ -363,6 +384,58 @@ const getResellersSummary = async () => {
   });
 };
 
+/**
+ * Get reseller hierarchy tree (nested children)
+ */
+const getResellerHierarchyTree = async (rootResellerId?: string) => {
+  const where: any = rootResellerId ? { id: rootResellerId } : { level: 'MASTER' };
+
+  const roots = await prisma.reseller.findMany({
+    where: { ...where, isActive: true },
+    include: {
+      user: { select: { name: true, email: true } },
+      zone: { select: { id: true, name: true } },
+      _count: { select: { customers: true, childResellers: true } },
+      childResellers: {
+        where: { isActive: true },
+        include: {
+          user: { select: { name: true, email: true } },
+          zone: { select: { id: true, name: true } },
+          _count: { select: { customers: true, childResellers: true } },
+          childResellers: {
+            where: { isActive: true },
+            include: {
+              user: { select: { name: true, email: true } },
+              zone: { select: { id: true, name: true } },
+              _count: { select: { customers: true } },
+            },
+            orderBy: { businessName: 'asc' as const },
+          },
+        },
+        orderBy: { businessName: 'asc' as const },
+      },
+    },
+    orderBy: { businessName: 'asc' },
+  });
+
+  return roots;
+};
+
+/**
+ * Get child resellers of a parent
+ */
+const getChildResellers = async (parentResellerId: string) => {
+  return prisma.reseller.findMany({
+    where: { parentResellerId, isActive: true },
+    include: {
+      user: { select: { name: true, email: true } },
+      zone: { select: { id: true, name: true } },
+      _count: { select: { customers: true, childResellers: true } },
+    },
+    orderBy: { businessName: 'asc' },
+  });
+};
+
 export default {
   createReseller,
   getResellers,
@@ -372,4 +445,6 @@ export default {
   deleteResellerById,
   getResellerStats,
   getResellersSummary,
+  getResellerHierarchyTree,
+  getChildResellers,
 };

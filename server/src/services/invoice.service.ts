@@ -4,6 +4,7 @@ import ApiError from '../utils/ApiError';
 import prisma from '../client';
 import logger from '../config/logger';
 import emailService from './email.service';
+import commissionService from './commission.service';
 
 const generateInvoiceNumber = async (): Promise<string> => {
   const count = await prisma.invoice.count();
@@ -34,6 +35,21 @@ const createInvoice = async (
   const taxAmount = body.taxAmount ?? 0;
   const discountAmount = body.discountAmount ?? 0;
   const totalAmount = subtotal + taxAmount - discountAmount;
+
+  // Credit limit enforcement for reseller customers
+  if (customer.reseller?.creditLimit) {
+    const outstanding = await prisma.invoice.aggregate({
+      where: { resellerId: customer.resellerId!, status: { in: ['SENT', 'PARTIALLY_PAID', 'OVERDUE'] } },
+      _sum: { balanceDue: true },
+    });
+    const outstandingTotal = Number(outstanding._sum.balanceDue || 0);
+    const creditLimit = Number(customer.reseller.creditLimit);
+    if (outstandingTotal + totalAmount > creditLimit) {
+      throw new ApiError(httpStatus.BAD_REQUEST,
+        `Credit limit exceeded for reseller ${customer.reseller.businessName}. Outstanding: ${outstandingTotal.toFixed(2)}, New: ${totalAmount.toFixed(2)}, Limit: ${creditLimit.toFixed(2)}`
+      );
+    }
+  }
 
   const invoiceNumber = await generateInvoiceNumber();
 
@@ -67,6 +83,12 @@ const createInvoice = async (
       customer: { select: { id: true, fullName: true, username: true } },
     },
   });
+
+  // Notify admins about new invoice
+  try {
+    const notifModule = await import('./notification.service');
+    notifModule.default.notifyInvoiceCreated(invoiceNumber, invoice.customer?.fullName || 'Unknown', totalAmount).catch(() => {});
+  } catch {}
 
   return invoice;
 };
@@ -244,6 +266,20 @@ const addPayment = async (
       }
     }
   } catch (err) { logger.error('Failed to send payment email', err); }
+
+  // Notify admins about payment received
+  try {
+    const notifModule = await import('./notification.service');
+    const customerName = invoice.customer?.username || 'Unknown';
+    notifModule.default.notifyPaymentReceived(invoice.invoiceNumber, customerName, paymentBody.amount, paymentBody.paymentMethod).catch(() => {});
+  } catch {}
+
+  // Commission cascade — calculate and record for reseller chain
+  if (invoice.resellerId) {
+    commissionService.calculateAndRecordCommissions(
+      payment.id, invoiceId, invoice.customerId, invoice.resellerId, paymentBody.amount,
+    ).catch(err => logger.error('Commission calculation failed', err));
+  }
 
   return payment;
 };

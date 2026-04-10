@@ -133,6 +133,15 @@ model User {
   // Expense Relations
   createdExpenses        Expense[]                @relation("ExpenseCreator")
 
+  // Collector Relations
+  collectorProfile       Collector?               @relation("CollectorUser")
+
+  // Support feature relations
+  customerNotes          CustomerNote[]           @relation("CustomerNoteAuthor")
+  announcements          Announcement[]           @relation("AnnouncementCreator")
+  bulkMessages           BulkMessage[]            @relation("BulkMessageCreator")
+  processedPayouts       ResellerPayout[]         @relation("PayoutProcessor")
+
   @@map("users")
 }
 
@@ -242,6 +251,8 @@ model Notification {
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId, isRead])
+  @@index([createdAt])
   @@map("notifications")
 }
 
@@ -339,6 +350,24 @@ enum NotificationType {
   SECURITY_ALERT
   SYSTEM_UPDATE
   WELCOME
+  // ISP Business notifications
+  INVOICE_CREATED
+  INVOICE_OVERDUE
+  PAYMENT_RECEIVED
+  TICKET_CREATED
+  TICKET_REPLIED
+  TICKET_ASSIGNED
+  TICKET_RESOLVED
+  CUSTOMER_ACTIVATED
+  CUSTOMER_SUSPENDED
+  CUSTOMER_EXPIRED
+  DEVICE_ALERT
+  DEVICE_RESOLVED
+  BANDWIDTH_WARNING
+  BANDWIDTH_CRITICAL
+  CUSTOMER_ONLINE
+  CUSTOMER_OFFLINE
+  ANNOUNCEMENT
 }
 
 enum DeviceType {
@@ -765,6 +794,11 @@ model Router {
   routerLogs   RouterLog[]
   trafficStats TrafficStat[]
 
+  // Compliance log relations
+  sessionLogs        SessionLog[]        @relation("RouterSessionLogs")
+  natLogs            NatLog[]            @relation("RouterNatLogs")
+  authenticationLogs AuthenticationLog[] @relation("RouterAuthLogs")
+
   @@map("routers")
 }
 
@@ -774,11 +808,13 @@ model InternetPackage {
   name          String
   mikrotikId    String?   @map("mikrotik_id")
   routerId      String    @map("router_id")
-  downloadSpeed Int       @map("download_speed")
-  uploadSpeed   Int       @map("upload_speed")
-  dataLimit     Int?      @map("data_limit")
-  burstDownload Int?      @map("burst_download")
-  burstUpload   Int?      @map("burst_upload")
+  downloadSpeed     Int       @map("download_speed")
+  uploadSpeed       Int       @map("upload_speed")
+  bdixDownloadSpeed Int?      @map("bdix_download_speed")
+  bdixUploadSpeed   Int?      @map("bdix_upload_speed")
+  dataLimit         Int?      @map("data_limit")
+  burstDownload     Int?      @map("burst_download")
+  burstUpload       Int?      @map("burst_upload")
   threshold     Int?      @map("threshold")
   burstTime     Int?      @map("burst_time")
   priority      Int       @default(8)
@@ -806,35 +842,100 @@ model InternetPackage {
 
 // Reseller Management
 model Reseller {
-  id                   String   @id @default(cuid())
-  userId               String   @unique @map("user_id")
-  businessName         String   @map("business_name")
-  businessRegistration String?  @map("business_registration")
-  taxId                String?  @map("tax_id")
-  commissionRate       Decimal  @default(10.00) @map("commission_rate") @db.Decimal(5, 2)
-  creditLimit          Decimal? @map("credit_limit") @db.Decimal(12, 2)
-  currentBalance       Decimal  @default(0) @map("current_balance") @db.Decimal(12, 2)
-  markupPercentage     Decimal  @default(0) @map("markup_percentage") @db.Decimal(5, 2)
-  canCreatePackages    Boolean  @default(false) @map("can_create_packages")
-  canCreateCustomers   Boolean  @default(true) @map("can_create_customers")
-  whiteLabelEnabled    Boolean  @default(false) @map("white_label_enabled")
-  companyLogo          String?  @map("company_logo")
-  primaryColor         String?  @map("primary_color")
-  supportPhone         String?  @map("support_phone")
-  supportEmail         String?  @map("support_email")
-  notes                String?
-  isActive             Boolean  @default(true) @map("is_active")
-  createdBy            String?  @map("created_by")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  id                    String   @id @default(cuid())
+  userId                String   @unique @map("user_id")
+  parentResellerId      String?  @map("parent_reseller_id")
+  level                 String   @default("MASTER") // MASTER, AREA, SUB
+  zoneId                String?  @map("zone_id")
+  businessName          String   @map("business_name")
+  businessRegistration  String?  @map("business_registration")
+  taxId                 String?  @map("tax_id")
+  commissionRate        Decimal  @default(0) @map("commission_rate") @db.Decimal(5, 2)
+  creditLimit           Decimal? @map("credit_limit") @db.Decimal(12, 2)
+  currentBalance        Decimal  @default(0) @map("current_balance") @db.Decimal(12, 2)
+  markupPercentage      Decimal  @default(0) @map("markup_percentage") @db.Decimal(5, 2)
+  canCreatePackages     Boolean  @default(false) @map("can_create_packages")
+  canCreateCustomers    Boolean  @default(true) @map("can_create_customers")
+  canCreateSubResellers Boolean  @default(false) @map("can_create_sub_resellers")
+  whiteLabelEnabled     Boolean  @default(false) @map("white_label_enabled")
+  companyLogo                String?  @map("company_logo")
+  businessRegistrationUrl    String?  @map("business_registration_url")
+  tinDocumentUrl             String?  @map("tin_document_url")
+  primaryColor               String?  @map("primary_color")
+  supportPhone          String?  @map("support_phone")
+  supportEmail          String?  @map("support_email")
+  notes                 String?
+  isActive              Boolean  @default(true) @map("is_active")
+  createdBy             String?  @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
-  user      User          @relation("UserResellerProfile", fields: [userId], references: [id], onDelete: Cascade)
-  customers IspCustomer[]
-  invoices  Invoice[]
-  payments  Payment[]
-  creator   User?         @relation("ResellerCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  user             User          @relation("UserResellerProfile", fields: [userId], references: [id], onDelete: Cascade)
+  parentReseller   Reseller?     @relation("ResellerHierarchy", fields: [parentResellerId], references: [id], onDelete: SetNull)
+  childResellers   Reseller[]    @relation("ResellerHierarchy")
+  zone             Zone?         @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  customers        IspCustomer[]
+  invoices         Invoice[]
+  payments         Payment[]
+  commissionRecords CommissionRecord[]
+  payouts          ResellerPayout[]
+  creator          User?         @relation("ResellerCreator", fields: [createdBy], references: [id], onDelete: SetNull)
 
+  @@index([parentResellerId])
+  @@index([level])
+  @@index([zoneId])
   @@map("resellers")
+}
+
+// Commission Records — tracks every commission transaction
+model CommissionRecord {
+  id                String   @id @default(cuid())
+  resellerId        String   @map("reseller_id")
+  paymentId         String   @map("payment_id")
+  invoiceId         String   @map("invoice_id")
+  customerId        String   @map("customer_id")
+  sourceResellerId  String?  @map("source_reseller_id")
+  sourceType        String   // PAYMENT (direct), CASCADED (from child reseller)
+  commissionRate    Decimal  @map("commission_rate") @db.Decimal(5, 2)
+  baseAmount        Decimal  @map("base_amount") @db.Decimal(12, 2)
+  commissionAmount  Decimal  @map("commission_amount") @db.Decimal(12, 2)
+  resellerLevel     String   @map("reseller_level") // MASTER, AREA, SUB
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  reseller Reseller @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+  payment  Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([resellerId])
+  @@index([paymentId])
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("commission_records")
+}
+
+// Reseller Payouts — payout requests and settlements
+model ResellerPayout {
+  id              String    @id @default(cuid())
+  resellerId      String    @map("reseller_id")
+  amount          Decimal   @db.Decimal(12, 2)
+  payoutMethod    String    @map("payout_method") // BANK_TRANSFER, BKASH, NAGAD, CASH
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED, COMPLETED
+  referenceNumber String?   @map("reference_number")
+  accountDetails  Json?     @map("account_details")
+  requestedAt     DateTime  @default(now()) @map("requested_at")
+  processedAt     DateTime? @map("processed_at")
+  processedBy     String?   @map("processed_by")
+  rejectionReason String?   @map("rejection_reason")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  reseller  Reseller @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+  processor User?    @relation("PayoutProcessor", fields: [processedBy], references: [id], onDelete: SetNull)
+
+  @@index([resellerId])
+  @@index([status])
+  @@map("reseller_payouts")
 }
 
 // ISP Customers
@@ -868,6 +969,20 @@ model IspCustomer {
   autoSuspend      Boolean        @default(true) @map("auto_suspend")
   autoSuspendDays  Int            @default(7) @map("auto_suspend_days")
   customPrice      Decimal?       @map("custom_price") @db.Decimal(10, 2)
+  profileImageUrl  String?        @map("profile_image_url")
+  // Bangladesh-specific fields
+  nidNumber        String?        @map("nid_number")
+  nidFrontUrl      String?        @map("nid_front_url")
+  nidBackUrl       String?        @map("nid_back_url")
+  agreementUrl     String?        @map("agreement_url")
+  zoneId           String?        @map("zone_id")
+  collectorId      String?        @map("collector_id")
+  billingType      BillingType    @default(POSTPAID) @map("billing_type")
+  expiryDate       DateTime?      @map("expiry_date")
+  connectionPoint  String?        @map("connection_point")
+  floor            String?
+  building         String?
+  maxDevices       Int?           @map("max_devices")
   status           CustomerStatus @default(PENDING_ACTIVATION)
   isOnline         Boolean        @default(false) @map("is_online")
   lastOnlineAt     DateTime?      @map("last_online_at")
@@ -887,6 +1002,8 @@ model IspCustomer {
   reseller     Reseller?       @relation(fields: [resellerId], references: [id], onDelete: SetNull)
   router       Router          @relation(fields: [routerId], references: [id], onDelete: Restrict)
   package      InternetPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  zone         Zone?           @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  collector    Collector?      @relation(fields: [collectorId], references: [id], onDelete: SetNull)
   invoices     Invoice[]
   tickets      SupportTicket[]
   creator      User?           @relation("CustomerCreator", fields: [createdBy], references: [id], onDelete: SetNull)
@@ -900,7 +1017,79 @@ model IspCustomer {
   @@index([packageId])
   @@index([status])
   @@index([isActive])
+  @@index([zoneId])
+  @@index([collectorId])
   @@map("isp_customers")
+
+  // Compliance log relations
+  sessionLogs        SessionLog[]        @relation("SessionLogs")
+  natLogs            NatLog[]            @relation("NatLogs")
+  authenticationLogs AuthenticationLog[] @relation("AuthLogs")
+  customerNotes      CustomerNote[]
+}
+
+// Customer Notes / Interaction Log
+model CustomerNote {
+  id         String   @id @default(cuid())
+  customerId String   @map("customer_id")
+  userId     String?  @map("user_id")
+  type       String   @default("NOTE") // NOTE, CALL, VISIT, COMPLAINT, FOLLOW_UP, SYSTEM
+  message    String
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  customer IspCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user     User?       @relation("CustomerNoteAuthor", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("customer_notes")
+}
+
+// Outage & Announcements
+model Announcement {
+  id                String   @id @default(cuid())
+  title             String
+  message           String
+  type              String   @default("INFO") // OUTAGE, MAINTENANCE, INFO, GENERAL
+  status            String   @default("DRAFT") // DRAFT, ACTIVE, RESOLVED, ARCHIVED
+  affectedRouterIds String[] @map("affected_router_ids")
+  startTime         DateTime? @map("start_time")
+  endTime           DateTime? @map("end_time")
+  estimatedResolve  DateTime? @map("estimated_resolve")
+  notifyVia         String?   @map("notify_via") // SMS, EMAIL, BOTH
+  notifiedCount     Int       @default(0) @map("notified_count")
+  createdBy         String?   @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  creator User? @relation("AnnouncementCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("announcements")
+}
+
+// Bulk Messaging
+model BulkMessage {
+  id          String   @id @default(cuid())
+  subject     String?
+  message     String
+  channel     String   // SMS, EMAIL, BOTH
+  filters     Json     // { status?, routerId?, zoneId?, customerIds? }
+  status      String   @default("DRAFT") // DRAFT, SENDING, COMPLETED, FAILED
+  totalCount  Int      @default(0) @map("total_count")
+  sentCount   Int      @default(0) @map("sent_count")
+  failedCount Int      @default(0) @map("failed_count")
+  createdBy   String?  @map("created_by")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  creator User? @relation("BulkMessageCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@map("bulk_messages")
 }
 
 // Invoicing
@@ -981,13 +1170,15 @@ model Payment {
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
   invoice  Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  reseller Reseller? @relation(fields: [resellerId], references: [id], onDelete: SetNull)
-  creator  User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  reseller          Reseller?          @relation(fields: [resellerId], references: [id], onDelete: SetNull)
+  creator           User?              @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  commissionRecords CommissionRecord[]
 
   @@index([customerId])
   @@index([invoiceId])
   @@index([resellerId])
   @@index([status])
+  @@index([paymentDate])
   @@map("payments")
 }
 
@@ -1012,9 +1203,11 @@ model SupportTicket {
   replies      TicketReply[]
 
   @@index([customerId])
+  @@index([resellerId])
   @@index([status])
   @@index([priority])
   @@index([assignedTo])
+  @@index([openedAt])
   @@map("support_tickets")
 }
 
@@ -1199,6 +1392,89 @@ model TrafficStat {
   @@index([periodStart])
   @@index([periodType])
   @@map("traffic_stats")
+}
+
+// ═══════════════════════════════════════════════════════
+// BTRC Compliance Logs — 6-month mandatory retention
+// ═══════════════════════════════════════════════════════
+
+// Session Log — PPPoE/Hotspot connect/disconnect events
+model SessionLog {
+  id            String   @id @default(cuid())
+  customerId    String?  @map("customer_id")
+  username      String   // PPPoE username
+  routerId      String   @map("router_id")
+  eventType     String   // CONNECT, DISCONNECT, AUTH_FAIL, TIMEOUT, ADMIN_KICK
+  sessionId     String?  @map("session_id") // MikroTik session ID
+  ipAddress     String?  @map("ip_address") // Assigned IP
+  macAddress    String?  @map("mac_address") // Caller ID / MAC
+  nasIp         String?  @map("nas_ip") // Router IP (NAS)
+  service       String?  // pppoe, hotspot, dhcp
+  uploadBytes   BigInt?  @map("upload_bytes")
+  downloadBytes BigInt?  @map("download_bytes")
+  sessionDuration Int?   @map("session_duration") // seconds
+  disconnectReason String? @map("disconnect_reason")
+  timestamp     DateTime @default(now())
+
+  customer IspCustomer? @relation("SessionLogs", fields: [customerId], references: [id], onDelete: SetNull)
+  router   Router       @relation("RouterSessionLogs", fields: [routerId], references: [id])
+
+  @@index([customerId])
+  @@index([username])
+  @@index([routerId])
+  @@index([ipAddress])
+  @@index([timestamp])
+  @@index([eventType])
+  @@map("session_logs")
+}
+
+// NAT/IP Assignment Log — which customer had which IP and when
+model NatLog {
+  id           String   @id @default(cuid())
+  customerId   String?  @map("customer_id")
+  username     String
+  assignedIp   String   @map("assigned_ip") // Public or private IP assigned
+  publicIp     String?  @map("public_ip") // NAT public IP if different
+  publicPort   Int?     @map("public_port") // NAT port range start
+  macAddress   String?  @map("mac_address")
+  routerId     String   @map("router_id")
+  action       String   // ASSIGN, RELEASE, NAT_MAP, NAT_UNMAP
+  timestamp    DateTime @default(now())
+
+  customer IspCustomer? @relation("NatLogs", fields: [customerId], references: [id], onDelete: SetNull)
+  router   Router       @relation("RouterNatLogs", fields: [routerId], references: [id])
+
+  @@index([customerId])
+  @@index([username])
+  @@index([assignedIp])
+  @@index([publicIp])
+  @@index([timestamp])
+  @@map("nat_logs")
+}
+
+// Authentication Log — all customer login attempts (success + failure)
+model AuthenticationLog {
+  id           String   @id @default(cuid())
+  username     String
+  customerId   String?  @map("customer_id")
+  routerId     String   @map("router_id")
+  eventType    String   // LOGIN_SUCCESS, LOGIN_FAIL, LOGOUT, SESSION_TIMEOUT
+  ipAddress    String?  @map("ip_address")
+  macAddress   String?  @map("mac_address")
+  nasIp        String?  @map("nas_ip")
+  service      String?  // pppoe, hotspot
+  failReason   String?  @map("fail_reason") // wrong password, disabled, limit exceeded
+  timestamp    DateTime @default(now())
+
+  customer IspCustomer? @relation("AuthLogs", fields: [customerId], references: [id], onDelete: SetNull)
+  router   Router       @relation("RouterAuthLogs", fields: [routerId], references: [id])
+
+  @@index([username])
+  @@index([customerId])
+  @@index([routerId])
+  @@index([timestamp])
+  @@index([eventType])
+  @@map("authentication_logs")
 }
 
 // App System Logs - For admin monitoring
@@ -1741,10 +2017,32 @@ model InventoryTransaction {
   @@map("inventory_transactions")
 }
 
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  contactName String?  @map("contact_name")
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  website     String?
+  taxId       String?  @map("tax_id")
+  notes       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([isActive])
+  @@map("suppliers")
+}
+
 model PurchaseOrder {
   id              String              @id @default(cuid())
   orderNumber     String              @unique @map("order_number")
-  supplier        String
+  supplierId      String?             @map("supplier_id")
+  supplier        String              // kept for backward compat / display name
   supplierContact String?             @map("supplier_contact")
   supplierEmail   String?             @map("supplier_email")
   status          PurchaseOrderStatus @default(DRAFT)
@@ -1757,10 +2055,12 @@ model PurchaseOrder {
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
 
+  supplierRef  Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   items        PurchaseOrderItem[]
   transactions InventoryTransaction[]
   creator      User?                  @relation("PurchaseOrderCreator", fields: [createdBy], references: [id], onDelete: SetNull)
 
+  @@index([supplierId])
   @@index([status])
   @@index([orderDate])
   @@map("purchase_orders")
@@ -1862,6 +2162,11 @@ model MonitoringConfig {
 // Expense Tracking & Financial
 // ═══════════════════════════════════════════════════════
 
+enum BillingType {
+  PREPAID
+  POSTPAID
+}
+
 enum ExpenseCategory {
   SALARY
   RENT
@@ -1898,4 +2203,196 @@ model Expense {
   @@index([category])
   @@index([expenseDate])
   @@map("expenses")
+}
+
+// ═══════════════════════════════════════════════════════
+// Zone / Area Management
+// ═══════════════════════════════════════════════════════
+
+model Zone {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  parentId    String?  @map("parent_id")
+  division    String?
+  district    String?
+  upazila     String?
+  area        String?  // Local area / locality name (e.g. Khalishpur, Sonadanga)
+  description String?
+  coverage    String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent   Zone?         @relation("ZoneHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Zone[]        @relation("ZoneHierarchy")
+  customers IspCustomer[]
+  collectors Collector[]
+  resellers  Reseller[]
+
+  @@index([parentId])
+  @@index([division, district])
+  @@map("zones")
+}
+
+// ═══════════════════════════════════════════════════════
+// Collector / Field Agent Management
+// ═══════════════════════════════════════════════════════
+
+model Collector {
+  id          String   @id @default(cuid())
+  userId      String?  @unique @map("user_id")
+  name        String
+  phone       String
+  email       String?
+  zoneId      String?  @map("zone_id")
+  commissionRate Decimal? @map("commission_rate") @db.Decimal(5, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User?         @relation("CollectorUser", fields: [userId], references: [id], onDelete: SetNull)
+  zone        Zone?         @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  customers   IspCustomer[]
+  collections Collection[]
+
+  @@index([zoneId])
+  @@map("collectors")
+}
+
+model Collection {
+  id            String   @id @default(cuid())
+  collectorId   String   @map("collector_id")
+  customerId    String   @map("customer_id")
+  invoiceId     String?  @map("invoice_id")
+  amount        Decimal  @db.Decimal(12, 2)
+  paymentMethod String   @default("CASH") @map("payment_method")
+  referenceNo   String?  @map("reference_no")
+  collectedAt   DateTime @default(now()) @map("collected_at")
+  status        String   @default("PENDING")
+  reconciledAt  DateTime? @map("reconciled_at")
+  reconciledBy  String?  @map("reconciled_by")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  collector Collector @relation(fields: [collectorId], references: [id], onDelete: Restrict)
+
+  @@index([collectorId])
+  @@index([customerId])
+  @@index([status])
+  @@index([collectedAt])
+  @@map("collections")
+}
+
+// ═══════════════════════════════════════════════════════
+// SMS Notifications
+// ═══════════════════════════════════════════════════════
+
+model SmsLog {
+  id          String   @id @default(cuid())
+  phone       String
+  message     String
+  type        String
+  status      String   @default("PENDING")
+  provider    String?
+  providerRef String?  @map("provider_ref")
+  errorMsg    String?  @map("error_msg")
+  sentAt      DateTime? @map("sent_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([phone])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sms_logs")
+}
+
+// ═══════════════════════════════════════════════════════
+// Mobile Payment (bKash/Nagad) Transactions
+// ═══════════════════════════════════════════════════════
+
+model MobilePayment {
+  id              String   @id @default(cuid())
+  provider        String
+  transactionId   String   @unique @map("transaction_id")
+  senderNumber    String   @map("sender_number")
+  receiverNumber  String   @map("receiver_number")
+  amount          Decimal  @db.Decimal(12, 2)
+  fee             Decimal? @db.Decimal(10, 2)
+  customerId      String?  @map("customer_id")
+  invoiceId       String?  @map("invoice_id")
+  status          String   @default("PENDING")
+  rawPayload      Json?    @map("raw_payload")
+  matchedAt       DateTime? @map("matched_at")
+  processedAt     DateTime? @map("processed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([senderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("mobile_payments")
+}
+
+// ═══════════════════════════════════════════════════════
+// IP Subnet / Pool Management
+// ═══════════════════════════════════════════════════════
+
+enum IpPoolType {
+  PPPOE
+  DHCP
+  STATIC
+  CGNAT
+  MANAGEMENT
+}
+
+model IpPool {
+  id            String     @id @default(cuid())
+  name          String
+  network       String                          // e.g. "10.10.1.0"
+  cidr          Int                             // e.g. 24
+  gateway       String?
+  dnsServers    String?    @map("dns_servers")  // comma-separated
+  poolType      IpPoolType @default(PPPOE) @map("pool_type")
+  routerId      String?    @map("router_id")
+  vlanId        Int?       @map("vlan_id")
+  totalIps      Int        @map("total_ips")
+  usedIps       Int        @default(0) @map("used_ips")
+  reservedIps   Int        @default(0) @map("reserved_ips")
+  description   String?
+  isActive      Boolean    @default(true) @map("is_active")
+  syncToRouter  Boolean    @default(false) @map("sync_to_router")
+  mikrotikPool  String?    @map("mikrotik_pool") // pool name on MikroTik
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  assignments   IpAssignment[]
+
+  @@unique([network, cidr])
+  @@index([routerId])
+  @@index([poolType])
+  @@map("ip_pools")
+}
+
+enum IpAssignmentStatus {
+  ACTIVE
+  RESERVED
+  RELEASED
+  BLOCKED
+}
+
+model IpAssignment {
+  id          String             @id @default(cuid())
+  poolId      String             @map("pool_id")
+  ipAddress   String             @map("ip_address")
+  customerId  String?            @map("customer_id")
+  status      IpAssignmentStatus @default(ACTIVE)
+  description String?
+  assignedAt  DateTime           @default(now()) @map("assigned_at")
+  releasedAt  DateTime?          @map("released_at")
+
+  pool IpPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@unique([poolId, ipAddress])
+  @@index([customerId])
+  @@index([status])
+  @@map("ip_assignments")
 }
